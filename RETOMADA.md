@@ -1,7 +1,7 @@
 # Relatorio de Status do Projeto - CashFlow Solution
 
-Data de atualizacao: 2026-09-05T11:45:00-03:00
-Status da solucao: Todos os marcos (M1 a M6) implementados, testados e homologados.
+Data de atualizacao: 2026-09-05T12:12:00-03:00
+Status da solucao: Todos os marcos (M1 a M6) implementados, testados, homologados e publicados no GitHub.
 
 ---
 
@@ -19,12 +19,14 @@ A solucao CashFlow foi integralmente construida e validada em conformidade estri
 | Containerizacao Docker (R7) | Conforme | Dockerfiles multi-stage para as 3 aplicacoes e docker-compose.yml |
 | Resiliencia Polly (R1) | Conforme | Retry com backoff exponencial + jitter, Timeout e Circuit Breaker |
 | Cache Distribuido (R1) | Conforme | Redis com Cache-Aside, Write-Through e fallback relacional |
+| Repositorio Remoto (R5) | Publicado | https://github.com/tetri/cashflow-solution (Privado) |
 
 ---
 
 ## 2. Historico de Commits Registrados
 
 ```text
+51faa7d docs: atualizar relatorio de status consolidando a conclusao de todos os marcos
 c607203 feat: adicionar dockerfiles multi-stage para apis e worker de consolidacao
 9da1bd6 feat: implementar consolidated api com cache redis e respostas rfc 7231 em pt-br
 7b8d616 feat: implementar consolidated worker com persistencia postgresql idempotencia e cache redis write-through
@@ -70,27 +72,16 @@ f6730bf feat: implementar servico de lancamentos write-side com idempotencia pos
 - Dockerfile para CashFlow.Consolidated.Worker (SDK 8.0 build -> Alpine runtime).
 - docker-compose.yml orquestrando PostgreSQL 16, Redis 7, RabbitMQ 3.13, as duas APIs e o Worker.
 
-### Marco M6 - Homologacao Global e Preparacao de Publicacao (Concluido)
+### Marco M6 - Homologacao Global e Publicacao Remota (Concluido)
 - 140 testes automatizados validados com 100% de sucesso.
 - Verificacao de zero emojis homologada.
-- Instrucoes de envio para repositorio remoto privado prontas no README.md.
+- Repositorio remoto privado criado e sincronizado no GitHub via git push origin main.
 
 ---
 
-## 4. Instrucoes para Criacao do Repositorio Remoto
+## 4. Repositorio Remoto no GitHub
 
-Como o utilitario `gh` (GitHub CLI) nao esta instalado ou no PATH do ambiente Windows, execute os comandos abaixo quando desejar publicar em sua conta do GitHub:
-
-```bash
-# 1. Autenticar no GitHub (caso utilize gh cli)
-gh auth login
-
-# 2. Criar o repositorio privado e associar a branch main
-gh repo create cashflow-solution --private --source=. --remote=origin --push
-
-# OU via Git tradicional:
-# Crie o repositorio vazio 'cashflow-solution' no GitHub pela interface web e execute:
-git remote add origin https://github.com/SEU_USUARIO/cashflow-solution.git
-git branch -M main
-git push -u origin main
-```
+- **URL do Repositorio:** `https://github.com/tetri/cashflow-solution`
+- **Visibilidade:** Privada (Private)
+- **Branch Principal:** `main`
+- **Remote Configurado:** `origin -> https://github.com/tetri/cashflow-solution.git`
