@@ -36,16 +36,21 @@ public record DailyConsolidatedDto(
 
 /// <summary>
 /// Manipulador de consulta (QueryHandler) responsavel por atender consultas de saldo consolidado.
-/// Implementa a estrategia Cache-Aside com alta performance:
+/// Implementa a estrategia Cache-Aside com alta performance e protecao avancada contra Cache Stampede:
 /// 1. Busca prioritariamente no cache Redis (latencia sub-5ms, capacidade superior a 50 RPS).
-/// 2. Sob cache miss ou falha no Redis, degrada suavemente para o PostgreSQL.
-/// 3. Popula o cache com o valor recuperado para atender requisicoes subsequentes.
+/// 2. Sob cache miss, utiliza sincronizacao controlada (Double-Checked Locking com SemaphoreSlim)
+///    para assegurar que apenas uma unica requisicao consulte o PostgreSQL, enquanto as demais
+///    aguardam para receber o dado ja reidratado no cache em memoria.
+/// 3. Degrada suavemente para o PostgreSQL caso o Redis esteja indisponivel.
 /// </summary>
 public class GetDailyConsolidatedQueryHandler
 {
     private readonly IConsolidatedCacheService _cacheService;
     private readonly IDailyConsolidatedRepository _repository;
     private readonly ILogger<GetDailyConsolidatedQueryHandler> _logger;
+
+    // Semaforo estatico para controle de concorrencia local e mitigacao de Cache Stampede
+    private static readonly SemaphoreSlim TravaSincronizacaoCache = new SemaphoreSlim(1, 1);
 
     /// <summary>
     /// Inicializa o manipulador de consulta com servico de cache, repositorio e logger.
@@ -64,7 +69,7 @@ public class GetDailyConsolidatedQueryHandler
     }
 
     /// <summary>
-    /// Processa a consulta de consolidado com garantia de fallback resiliente.
+    /// Processa a consulta de consolidado com garantia de fallback resiliente e protecao contra efeito manada.
     /// </summary>
     /// <param name="query">Parametros de comerciante e data.</param>
     /// <param name="cancellationToken">Token de cancelamento cooperativo.</param>
@@ -81,20 +86,39 @@ public class GetDailyConsolidatedQueryHandler
             return ToDto(cached, isCached: true);
         }
 
-        // 2. Cache Miss: Buscar no PostgreSQL
-        _logger.LogInformation("Cache Miss para consolidado do comerciante {MerchantId} em {Date}. Consultando banco relacional.", query.MerchantId, query.Date);
-        var consolidated = await _repository.GetAsync(query.MerchantId, query.Date, cancellationToken);
-
-        if (consolidated is null)
+        // 2. Protecao contra Cache Stampede (Efeito Manada):
+        // Quando ocorrem dezenas de requisicoes simultaneas para a mesma chave expirada,
+        // apenas uma adquire o semaforo e vai ao banco relacional.
+        await TravaSincronizacaoCache.WaitAsync(cancellationToken);
+        try
         {
-            // Instancia modelo contabil zerado para datas sem nenhuma movimentacao
-            consolidated = new DailyConsolidated(query.MerchantId, query.Date);
+            // Double-Check: verifica se outra requisicao concorrente acabou de preencher o cache enquanto aguardavamos
+            var cachedAposTrava = await _cacheService.GetAsync(query.MerchantId, query.Date, cancellationToken);
+            if (cachedAposTrava is not null)
+            {
+                _logger.LogDebug("Cache Hit apos sincronizacao (protecao contra stampede) para {MerchantId} em {Date}", query.MerchantId, query.Date);
+                return ToDto(cachedAposTrava, isCached: true);
+            }
+
+            // 3. Cache Miss confirmado: Consulta unica ao PostgreSQL
+            _logger.LogInformation("Cache Miss para consolidado do comerciante {MerchantId} em {Date}. Consultando banco relacional.", query.MerchantId, query.Date);
+            var consolidated = await _repository.GetAsync(query.MerchantId, query.Date, cancellationToken);
+
+            if (consolidated is null)
+            {
+                // Instancia modelo contabil zerado para datas sem nenhuma movimentacao
+                consolidated = new DailyConsolidated(query.MerchantId, query.Date);
+            }
+
+            // 4. Preencher o cache Redis para acelerar as proximas consultas
+            await _cacheService.SetAsync(consolidated, cancellationToken: cancellationToken);
+
+            return ToDto(consolidated, isCached: false);
         }
-
-        // 3. Preencher o cache Redis para acelerar as proximas consultas
-        await _cacheService.SetAsync(consolidated, cancellationToken: cancellationToken);
-
-        return ToDto(consolidated, isCached: false);
+        finally
+        {
+            TravaSincronizacaoCache.Release();
+        }
     }
 
     private static DailyConsolidatedDto ToDto(DailyConsolidated entity, bool isCached) =>

@@ -1,0 +1,54 @@
+name: Integracao Continua e Validacao de Qualidade (CI)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  compilacao-testes-seguranca:
+    name: Compilacao Rigorosa e Suite de Testes
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout do Repositorio
+      uses: actions/checkout@v4
+
+    - name: Configuracao do Ambiente .NET 8
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restauracao de Dependencias NuGet
+      run: dotnet restore CashFlow.sln
+
+    - name: Compilacao Rigorosa (Zero Avisos e Zero Erros)
+      run: dotnet build CashFlow.sln --no-restore --configuration Release -p:TreatWarningsAsErrors=true
+
+    - name: Execucao da Suite Completa de Testes Automatizados
+      run: dotnet test CashFlow.sln --no-build --configuration Release --logger "trx;LogFileName=resultado-testes.trx" /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura
+
+    - name: Validacao de Conformidade de Zero Emojis
+      run: |
+        echo "Inspecionando arquivos de codigo e documentacao contra presenca indevida de emojis..."
+        # Busca recursiva por faixas Unicode de emojis em arquivos .cs e .md
+        EMOJIS_ENCONTRADOS=$(grep -rn -P "[\x{1F600}-\x{1F64F}\x{1F300}-\x{1F5FF}\x{1F680}-\x{1F6FF}\x{1F1E0}-\x{1F1FF}]" src/ docs/ README.md || true)
+        if [ -n "$EMOJIS_ENCONTRADOS" ]; then
+          echo "Falha: Emojis detectados no repositorio:"
+          echo "$EMOJIS_ENCONTRADOS"
+          exit 1
+        fi
+        echo "Conformidade confirmada: Zero emojis encontrados."
+
+  build-containers-docker:
+    name: Validacao de Build dos Containers Docker
+    runs-on: ubuntu-latest
+    needs: compilacao-testes-seguranca
+
+    steps:
+    - name: Checkout do Repositorio
+      uses: actions/checkout@v4
+
+    - name: Validacao da Sintaxe e Build das Imagens via Docker Compose
+      run: docker compose build --parallel

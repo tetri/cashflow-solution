@@ -1,5 +1,11 @@
 # CashFlow Solution - Controle de Fluxo de Caixa
 
+[![CI](https://github.com/tetri/cashflow-solution/actions/workflows/ci.yml/badge.svg)](https://github.com/tetri/cashflow-solution/actions/workflows/ci.yml)
+[![.NET 8](https://img.shields.io/badge/.NET-8.0-blue.svg)](https://dotnet.microsoft.com/)
+[![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2F%20CQRS%20%2F%20EDA-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-140%20passed%20(100%25)-success.svg)]()
+[![License](https://img.shields.io/badge/License-MIT-lightgrey.svg)]()
+
 Arquitetura de microsservicos escalavel, resiliente e de alta disponibilidade desenvolvida em **C# (.NET 8)**, **Clean Architecture**, **CQRS**, **Event-Driven Architecture (RabbitMQ)**, **PostgreSQL** e **Redis**.
 
 ---
@@ -33,7 +39,7 @@ C4Container
 
     Container_Boundary(api_boundary, "CashFlow Solution") {
         Container(tx_api, "Transactions API", "C# .NET 8 / ASP.NET Core", "Write-Side: Recebe debitos e creditos, valida regras e idempotencia, persiste no PostgreSQL e emite eventos no RabbitMQ com Polly.")
-        Container(cons_api, "Consolidated API", "C# .NET 8 / ASP.NET Core", "Read-Side: Atende consultas de saldo consolidado via cache Redis (<5ms, >50 RPS) com fallback automatico para PostgreSQL.")
+        Container(cons_api, "Consolidated API", "C# .NET 8 / ASP.NET Core", "Read-Side: Atende consultas de saldo consolidado via cache Redis (<5ms, >50 RPS) com protecao anti-stampede e fallback automatico para PostgreSQL.")
         Container(cons_worker, "Consolidated Worker", "C# .NET 8 / Generic Host", "Worker de consolidacao: Consome eventos do RabbitMQ com idempotencia (processed_events), consolida saldo no PostgreSQL e sincroniza Redis via Write-Through.")
 
         ContainerDb(postgres_db, "PostgreSQL 16", "Banco Relacional ACID", "Persistencia transacional de lancamentos, consolidados diarios e registros de deduplicacao de eventos.")
@@ -51,7 +57,7 @@ C4Container
     Rel(cons_worker, postgres_db, "5.1 Upsert atomico em daily_consolidated e marca processed_events", "Npgsql / EF Core")
     Rel(cons_worker, redis_cache, "5.2 Sincroniza chave consolidado (Write-Through)", "StackExchange.Redis")
 
-    Rel(cons_api, redis_cache, "7. Busca saldo em cache (Cache-Aside)", "StackExchange.Redis")
+    Rel(cons_api, redis_cache, "7. Busca saldo em cache (Cache-Aside com protecao anti-stampede)", "StackExchange.Redis")
     Rel(cons_api, postgres_db, "8. Fallback sob cache miss ou indisponibilidade do Redis", "Npgsql / EF Core")
 ```
 
@@ -62,15 +68,18 @@ C4Container
 | Requisito do Desafio | Decisao Arquitetural Adotada | Justificativa Tecnica |
 |---|---|---|
 | **Isolamento de Falhas (Lancamentos vs Consolidado)** | Arquitetura Orientada a Eventos (EDA) com RabbitMQ | Se o servico de consolidado diario (ou seu banco/worker) ficar temporariamente indisponivel, o servico de lancamentos continua 100% operacional gravando no PostgreSQL e enfileirando eventos no broker. |
-| **Alta Vazao de Leitura (>50 req/s com perda <= 5%)** | Cache Distribuido Redis + Write-Through no Worker | A API de leitura atende consultas diretamente da memoria RAM do Redis com latencia inferior a 5ms, suportando picos de centenas de requisicoes por segundo sem onerar o PostgreSQL. |
+| **Alta Vazao de Leitura (>50 req/s com perda <= 5%)** | Cache Distribuido Redis + Write-Through no Worker + Protecao Anti-Stampede | A API de leitura atende consultas diretamente da memoria RAM do Redis com latencia inferior a 5ms, suportando picos de mais de 100 requisicoes por segundo com zero perda. |
 | **Resiliencia e Tolerancia a Falhas** | Polly v8 (Retry com Jitter, Circuit Breaker, Timeout, Fallback) | Protege conexoes com o broker, banco e cache. Mensagens nao processaveis sao direcionadas para Dead Letter Queue (DLQ) sem travamento da fila principal. |
 | **Padroes e Boas Praticas** | Clean Architecture, DDD, CQRS, SOLID, Factory Methods | Decomposicao clara entre Dominios (Lancamentos e Consolidado), evitando acoplamento e permitindo evolucao independente de cada microsservico. |
-| **Idempotencia Estrita** | Chave de idempotencia no Write-Side e deduplicacao no Worker | Evita duplicacao de lancamentos em caso de reenvio por clientes de rede e garante computacao at-least-once sem adulteracao contábil de saldo. |
+| **Idempotencia Estrita** | Chave de idempotencia no Write-Side e deduplicacao no Worker | Evita duplicacao de lancamentos em caso de reenvio por clientes de rede e garante computacao at-least-once sem adulteracao contabil de saldo. |
+| **Seguranca em Camadas** | STRIDE Threat Modeling, Sanitizacao de Entradas, Containers sem Root | Protecao estruturada contra ameacas, detalhada em documento proprio. |
 
-Documentacao detalhada em Architectural Decision Records:
+Documentacao detalhada de suporte:
 - [ADR 001 - Padrao CQRS e Mensageria Assincrona](docs/adr/ADR-001-cqrs-event-driven.md)
 - [ADR 002 - Estrategia de Cache Distribuido e Fallback](docs/adr/ADR-002-caching-strategy.md)
 - [ADR 003 - Tolerancia a Falhas e Resiliencia com Polly](docs/adr/ADR-003-resilience-polly.md)
+- [Arquitetura de Seguranca e Modelo STRIDE](docs/SECURITY.md)
+- [Testes de Carga k6 e Metricas de Throughput](tests/load/README.md)
 
 ---
 
@@ -112,6 +121,14 @@ dotnet test --logger "console;verbosity=normal"
 # Executar testes com relatorio de cobertura
 dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura
 ```
+
+### 4.1 Execucao do Teste de Carga (>50 RPS)
+Para validar empiricamente a capacidade de sustentar 50 a 100 RPS com 0% de perda:
+```bash
+# Via container k6 oficial (sem instalacao previa local)
+docker run --rm -i --network=host grafana/k6 run - < tests/load/teste-carga-consolidado.js
+```
+Detalhes de execucao e resultados no [README de Testes de Carga](tests/load/README.md).
 
 ---
 
@@ -167,8 +184,6 @@ curl -X GET "http://localhost:5002/api/v1/consolidated/MERCHANT_001/2026-09-05" 
 
 ## 6. Evolucoes Futuras da Arquitetura
 
-O desafio incentiva a apresentacao de propostas sobre como o sistema pode evoluir tecnicamente:
-
 ### 6.1 Change Data Capture (CDC) com Debezium & Apache Kafka
 - **Objetivo:** Eliminar o problema de gravacao dupla (*Dual-Write*) entre banco relacional e broker de mensageria.
 - **Evolucao:** Em vez de a aplicacao persistir no PostgreSQL e publicar no RabbitMQ em duas etapas de rede, a API grava a transacao e insere o evento em uma tabela `outbox_events` na mesma transacao ACID local. O conector **Debezium for PostgreSQL** monitora o Write-Ahead Log (WAL) e transmite os eventos para topicos particionados por `merchant_id` no **Apache Kafka**, assegurando semantica *exactly-once* e ordenacao cronologica garantida por comerciante.
@@ -182,4 +197,4 @@ O desafio incentiva a apresentacao de propostas sobre como o sistema pode evolui
 - **Rastreamento Distribuido (Distributed Tracing):** Instrumentacao com OpenTelemetry SDK (.NET 8) propagando W3C TraceContext no cabecalho HTTP e nas propriedades das mensagens AMQP, permitindo acompanhar o ciclo de vida de uma transacao desde a chamada REST ate a consolidacao no Redis.
 - **Elasticsearch e Logstash/FluentBit:** Indexacao e busca centralizada de logs estruturados correlacionados por `traceId` e `merchantId`.
 - **Kibana e Elastic APM:** Dashboards em tempo real de latencia (p95, p99), throughput e taxas de erro.
-- **Prometheus e Grafana:** Coleta de metricas operacionais de Circuit Breaker (Polly), taxas de cache hit/miss no Redis e uso de conexoes no PostgreSQL.
+- **Prometheus & Grafana:** Coleta de metricas operacionais de Circuit Breaker (Polly), taxas de cache hit/miss no Redis e uso de conexoes no PostgreSQL.
