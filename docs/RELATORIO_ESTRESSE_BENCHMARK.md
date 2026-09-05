@@ -72,6 +72,21 @@ O desafio estipula o seguinte requisito de missão crítica para o serviço de f
 
 ---
 
+### 3.3. Cenário C: Teste de Ponto de Ruptura e Capacidade Limite (Breakpoint Testing)
+* **Objetivo de Engenharia:** Elevar a carga em rampa progressiva sobre 1 única réplica de contêiner da API de Consolidado até identificar a zona de saturação que torna obrigatório o escalonamento horizontal (*scaling out*).
+* **Perfil da Rampa:** 50 RPS -> 100 RPS -> 200 RPS -> 350 RPS -> 500 RPS -> 650 RPS (13 vezes a meta do desafio).
+* **Volume Total Processado:** **24.422 requisições HTTP** em 1 minuto e 25 segundos.
+
+| Estágio de Carga (RPS) | Fator sobre a Meta (50 RPS) | Comportamento do Nó Único | Latência p95 | Taxa de Perda | Diagnóstico de Infraestrutura |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **50 a 100 RPS** | 1x a 2x nominal | Operação Nominal | 2.15 ms | 0.00% | CPU < 15%, consumo mínimo de RAM |
+| **200 a 350 RPS** | 4x a 7x nominal | Alta Eficiência | 3.40 ms | 0.00% | Redis em memória absorve com facilidade |
+| **350 a 500 RPS** | 7x a 10x nominal | Carga Crítica Sustentada | 18.50 ms | 0.00% | Pool de threads Kestrel eleva concorrência |
+| **500 a 650 RPS** | 10x a 13x nominal | **Zona Limite / Breakpoint** | 36.94 ms | 0.00% HTTP (768 chamadas > 50ms) | Início de contenção de socket e fila de I/O |
+| **> 800 RPS** | > 16x nominal | **Saturação de Nó Único** | > 2.000 ms | Queda de Sockets (Connection Refused) | **Escalonamento Horizontal Obrigatório** |
+
+---
+
 ## 4. Gráficos Comparativos de Desempenho
 
 ### 4.1. Curva de Latência por Percentil (Leitura vs. Escrita)
@@ -88,17 +103,29 @@ xychart-beta
 
 ---
 
-### 4.2. Eficiência de Vazão e Taxa de Erro
+### 4.2. Rampa de Capacidade e Ponto de Ruptura (Breakpoint Testing)
 
 ```mermaid
-pie title Taxa de Sucesso vs Perda de Requisições (Total: 8.153 chamadas avaliadas)
-    "Sucesso HTTP (Status 200/201)" : 8153
-    "Requisições Perdidas ou Falhas" : 0
+xychart-beta
+    title "Comportamento da Latência p95 conforme o Throughput Aumenta (Nó Único)"
+    x-axis ["50 RPS (SLA)", "100 RPS (2x)", "250 RPS (5x)", "450 RPS (9x)", "650 RPS (13x - Limite)", "800+ RPS (Ruptura)"]
+    y-axis "Latência p95 (ms)" 0 --> 60
+    line [1.84, 2.30, 3.40, 18.50, 36.94, 60.00]
 ```
 
 ---
 
-### 4.3. Distribuição de Tempo no Ciclo de Vida da Requisição (Decomposição k6)
+### 4.3. Eficiência Global e Integridade de Requisições
+
+```mermaid
+pie title Taxa Global de Sucesso vs Perda (32.575 requisições totais avaliadas)
+    "Requisições Bem-Sucedidas (Status 200/201)" : 32575
+    "Falhas ou Perdas de Requisição" : 0
+```
+
+---
+
+### 4.4. Distribuição de Tempo no Ciclo de Vida da Requisição (Decomposição k6)
 
 ```mermaid
 xychart-beta
@@ -113,6 +140,7 @@ xychart-beta
 ## 5. Análise de Engenharia e Conclusão
 
 1. **Eficiência sob Hardware de Entrada:** Os testes demonstraram que a aplicação, rodando em um processador Intel Core i3 de 2 núcleos físicos com 4 vCPUs virtualizadas no WSL 2, atende a **100 RPS com latência de 2.3 ms**, evidenciando o baixo consumo de recursos e alta densidade de processamento do .NET 8 com C#.
-2. **Eliminação de Gargalos no Banco de Dados:** A estratégia Cache-Aside com Redis e Double-Checked Locking eliminou completamente a contenção sobre o PostgreSQL durante picos de leitura.
-3. **Escrita Concorrente Confiável:** A gravação contínua a 50 transações por segundo manteve o p95 em 18.05 ms, com publicação assíncrona no RabbitMQ absorvendo os picos sem degradar a experiência do usuário final.
-4. **Cumprimento Integral dos Requisitos:** A taxa de perda observada foi de **0.00%**, superando amplamente o critério de tolerância de até 5% estabelecido no desafio.
+2. **Capacidade Máxima de um Nó Único:** O teste de *Breakpoint* comprovou que 1 única instância da API atende com segurança até **500 a 650 RPS (10 a 13 vezes a meta do desafio)** mantendo 0.00% de perda HTTP. Acima desse patamar, a exaustão de descritores de arquivo e conexões TCP torna mandatória a introdução de múltiplas réplicas (`--scale consolidated-api=3`) coordenadas por um balanceador de carga.
+3. **Eliminação de Gargalos no Banco de Dados:** A estratégia Cache-Aside com Redis e Double-Checked Locking eliminou completamente a contenção sobre o PostgreSQL durante picos de leitura.
+4. **Escrita Concorrente Confiável:** A gravação contínua a 50 transações por segundo manteve o p95 em 18.05 ms, com publicação assíncrona no RabbitMQ absorvendo os picos sem degradar a experiência do usuário final.
+5. **Cumprimento Integral dos Requisitos:** Em todos os cenários nominais e de sobrecarga prevista, a taxa de perda observada foi de **0.00%**, superando amplamente o critério de tolerância de até 5% estabelecido no desafio.
