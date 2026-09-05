@@ -139,6 +139,21 @@ Polly e uma biblioteca de politicas de resiliencia e tolerancia a falhas para .N
 > *"Essa decisao foi deliberada e documentada na ADR 004. O evento contabil TransactionCreatedEvent serializado em JSON UTF-8 minificado possui aproximadamente 200 bytes. Algoritmos de compressao como Brotli e Gzip operam sobre dicionarios de repeticao; em payloads menores que 500 bytes, os metadados do algoritmo geram taxa de compressao negativa (o payload final compactado fica com ~230 bytes, maior que o original) e desperdicam ciclos uteis de CPU no Publisher e no Consumer.*
 > *Para a carga nominal de 50 RPS (trafego irrisorio de ~11 KB/s), o JSON direto e otimo. Documentei formalmente na ADR 004 que a evolucao arquitetural correta para maior densidade e adotar Protocol Buffers (Protobuf binario, reduzindo para 45 bytes) e compactacao Brotli condicional apenas para lotes ou payloads acima de 2 KB (Threshold Compression)."*
 
+### Pergunta 7: "Por que voce escolheu .NET 8 e nao .NET 9 ou superior?"
+> **Resposta de Arquiteto:**
+> *"Em sistemas financeiros e bancarios de missao critica, a politica de governanca tecnica prioriza estabilidade e ciclo de vida corporativo: o .NET 8 e uma versao LTS (Long Term Support) oficial da Microsoft, com 3 anos de suporte garantido e patches de seguranca ate o final de 2026. Ja versoes como o .NET 9 sao classificadas como STS (Standard Term Support), com suporte de apenas 18 meses, exigindo upgrades compulsorios frequentes que elevam o custo de manutencao e o risco operacional em producao.*
+> *Alem disso, o .NET 8 ja consolida o C# 12, recursos modernos de alto desempenho com tipos nativos DateOnly/TimeOnly e paridade estavel com todos os drivers do ecossistema (Npgsql, StackExchange.Redis, RabbitMQ.Client)."*
+
+### Pergunta 8: "Quais bibliotecas externas foram adotadas e qual a justificativa de cada uma?"
+> **Resposta de Arquiteto:**
+> *"Adotamos uma arvore estritamente enxuta e justificada para evitar inchaco de dependencias (bloatware) e diminuir vulnerabilidades de cadeia de suprimentos (supply chain attacks):*
+> *1. Npgsql.EntityFrameworkCore.PostgreSQL (v8.0.4): driver e ORM de alto desempenho com suporte nativo a tipos DateOnly, indices compostos unicos para idempotencia e transacoes ACID.*
+> *2. StackExchange.Redis (v2.8.0): cliente padrao de mercado com multiplexacao assincrona compartilhada (IConnectionMultiplexer), viabilizando consultas submilisegundo (< 5ms).*
+> *3. RabbitMQ.Client (v6.8.1): controle cirurgico de mensageria com prefetch=20 (QoS), canais assincronos e roteamento automatico para Dead Letter Queue (DLQ).*
+> *4. Polly / Polly.Core (v8.4.1): versao reescrita do motor de resiliencia com ResiliencePipelineBuilder de alocacao quase zero, provendo Retries com Jitter, Timeout de 3s e Circuit Breaker.*
+> *5. Swashbuckle.AspNetCore (v6.6.2): geracao de contratos OpenAPI/Swagger interativos em portugues culto.*
+> *6. xUnit + NSubstitute + FluentAssertions + Coverlet: framework de testes paralelos com assercoes legiveis, mocks sem acoplamento e metricas de cobertura para a esteira de CI."*
+
 ---
 
 ## 4. Roteiro Pratico para Demonstracao ao Vivo
