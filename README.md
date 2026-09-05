@@ -80,6 +80,7 @@ Documentacao detalhada de suporte:
 - [ADR 001 - Padrao CQRS e Mensageria Assincrona](docs/adr/ADR-001-cqrs-event-driven.md)
 - [ADR 002 - Estrategia de Cache Distribuido e Fallback](docs/adr/ADR-002-caching-strategy.md)
 - [ADR 003 - Tolerancia a Falhas e Resiliencia com Polly](docs/adr/ADR-003-resilience-polly.md)
+- [ADR 004 - Estrategia de Serializacao e Compactacao de Mensagens](docs/adr/ADR-004-message-compression-and-serialization.md)
 - [Arquitetura de Seguranca e Modelo STRIDE](docs/SECURITY.md)
 - [Testes de Carga k6 e Metricas de Throughput](tests/load/README.md)
 

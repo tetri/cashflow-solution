@@ -134,6 +134,11 @@ Polly e uma biblioteca de politicas de resiliencia e tolerancia a falhas para .N
 > *"Utilizamos SemaphoreSlim local porque cada instancia da API de consolidado e capaz de amortecer e serializar suas proprias requisicoes concorrentes com custo zero de rede. Se tivessemos 5 pods da API sob pico, no pior caso seriam feitas apenas 5 consultas pontuais ao PostgreSQL em vez de 50 ou 100 por pod, o que o pool de conexoes do banco suporta com extrema tranquilidade.*
 > *Adotar Redlock distribuido adicionaria latencia de round-trip de rede para aquisicao e liberacao de lock em cada leitura. O SemaphoreSlim com Double-Checked Locking alcanca o equilibrio ideal de desempenho (sub-5ms) e protecao do banco."*
 
+### Pergunta 6: "Por que as mensagens do RabbitMQ nao estao compactadas com Gzip ou Brotli?"
+> **Resposta de Arquiteto:**
+> *"Essa decisao foi deliberada e documentada na ADR 004. O evento contabil TransactionCreatedEvent serializado em JSON UTF-8 minificado possui aproximadamente 200 bytes. Algoritmos de compressao como Brotli e Gzip operam sobre dicionarios de repeticao; em payloads menores que 500 bytes, os metadados do algoritmo geram taxa de compressao negativa (o payload final compactado fica com ~230 bytes, maior que o original) e desperdicam ciclos uteis de CPU no Publisher e no Consumer.*
+> *Para a carga nominal de 50 RPS (trafego irrisorio de ~11 KB/s), o JSON direto e otimo. Documentei formalmente na ADR 004 que a evolucao arquitetural correta para maior densidade e adotar Protocol Buffers (Protobuf binario, reduzindo para 45 bytes) e compactacao Brotli condicional apenas para lotes ou payloads acima de 2 KB (Threshold Compression)."*
+
 ---
 
 ## 4. Roteiro Pratico para Demonstracao ao Vivo
