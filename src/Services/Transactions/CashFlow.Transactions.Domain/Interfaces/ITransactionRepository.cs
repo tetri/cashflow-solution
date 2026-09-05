@@ -17,12 +17,22 @@ public interface ITransactionRepository
     Task AddAsync(Transaction transaction, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Recupera uma transacao persistida a partir de seu identificador unico.
+    /// Recupera uma transacao persistida a partir de seu identificador unico universal (UUID).
     /// </summary>
     /// <param name="id">Identificador UUID da transacao.</param>
     /// <param name="cancellationToken">Token para cancelamento cooperativo.</param>
     /// <returns>A entidade encontrada ou nulo se inexistente.</returns>
     Task<Transaction?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Consulta uma transacao pre-existente com base na chave de idempotencia fornecida.
+    /// Permite ao servico de aplicacao verificar se a operacao ja foi executada anteriormente,
+    /// prevenindo a duplicacao de lancamentos e a emissao redundante de eventos no barramento.
+    /// </summary>
+    /// <param name="idempotencyKey">Chave unica de identificacao da requisicao.</param>
+    /// <param name="cancellationToken">Token para cancelamento cooperativo.</param>
+    /// <returns>A entidade correspondente ou nulo caso nao haja registro previo com a chave.</returns>
+    Task<Transaction?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

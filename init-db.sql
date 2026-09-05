@@ -1,16 +1,18 @@
--- Cashflow Database Schema
+-- Esquema de Banco de Dados Relacional - CashFlow (PostgreSQL)
 
 CREATE TABLE IF NOT EXISTS transactions (
     id UUID PRIMARY KEY,
     merchant_id VARCHAR(50) NOT NULL,
     amount DECIMAL(18, 2) NOT NULL,
-    type VARCHAR(10) NOT NULL, -- 'Credit' or 'Debit'
-    description VARCHAR(255) NOT NULL,
+    type VARCHAR(10) NOT NULL, -- 'Credit' ou 'Debit'
+    description VARCHAR(500) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    processed_at TIMESTAMP WITH TIME ZONE
+    processed_at TIMESTAMP WITH TIME ZONE,
+    idempotency_key VARCHAR(128)
 );
 
 CREATE INDEX IF NOT EXISTS idx_transactions_merchant_date ON transactions (merchant_id, created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_idempotency_key ON transactions (idempotency_key) WHERE idempotency_key IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS daily_consolidated (
     merchant_id VARCHAR(50) NOT NULL,
