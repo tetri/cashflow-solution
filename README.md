@@ -75,6 +75,8 @@ C4Container
 | **Seguranca em Camadas** | STRIDE Threat Modeling, Sanitizacao de Entradas, Containers sem Root | Protecao estruturada contra ameacas, detalhada em documento proprio. |
 
 Documentacao detalhada de suporte:
+- [Guia de Engenharia e Defesa Tecnica da Arquitetura (Estudo para Entrevista)](docs/GUIA_TECNICO_ARQUITETURA.md)
+- [Guia de Integracao da API para Desenvolvedores (Developer Experience)](docs/GUIA_INTEGRACAO_API.md)
 - [ADR 001 - Padrao CQRS e Mensageria Assincrona](docs/adr/ADR-001-cqrs-event-driven.md)
 - [ADR 002 - Estrategia de Cache Distribuido e Fallback](docs/adr/ADR-002-caching-strategy.md)
 - [ADR 003 - Tolerancia a Falhas e Resiliencia com Polly](docs/adr/ADR-003-resilience-polly.md)
