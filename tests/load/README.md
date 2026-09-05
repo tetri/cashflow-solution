@@ -1,22 +1,22 @@
-# Testes de Carga e Estresse - Servico de Consolidado Diario e Transações
+# Testes de Carga e Estresse - Serviço de Consolidado Diário e Transações
 
-Este diretorio contem a especificacao, scripts executaveis e automacao em lote para comprovacao empirica dos requisitos nao-funcionais estipulados no desafio:
-> *"Em dias de picos, o servico de consolidado diario recebe 50 requisicoes por segundo, com no maximo 5% de perda de requisicoes."*
+Este diretório contém a especificação, scripts executáveis e automação em lote para comprovação empírica dos requisitos não-funcionais estipulados no desafio:
+> *"Em dias de picos, o serviço de consolidado diário recebe 50 requisições por segundo, com no máximo 5% de perda de requisições."*
 
 ---
 
 ## 1. Ferramenta Utilizada
 
-Utilizamos o **k6** (Grafana Labs), padrao de mercado para testes de carga e engenharia de confiabilidade (SRE).
+Utilizamos o **k6** (Grafana Labs), padrão de mercado para testes de carga e engenharia de confiabilidade (SRE).
 
 ---
 
-## 2. Cenarios de Teste Disponíveis
+## 2. Cenários de Teste Disponíveis
 
-1. **Cenario Read-Side (Consolidado Diário):** [`teste-carga-consolidado.js`](teste-carga-consolidado.js)
+1. **Cenário Read-Side (Consolidado Diário):** [`teste-carga-consolidado.js`](teste-carga-consolidado.js)
    - Pico nominal de 50 RPS durante 60 segundos (3.000 chamadas).
    - Estresse de sobrecarga a 100 RPS durante 30 segundos (3.000 chamadas adicionais).
-2. **Cenario Write-Side (Ingestão de Transações):** [`teste-carga-transacoes.js`](teste-carga-transacoes.js)
+2. **Cenário Write-Side (Ingestão de Transações):** [`teste-carga-transacoes.js`](teste-carga-transacoes.js)
    - 30 RPS durante 30 segundos (900 transações).
    - Pico de 50 RPS durante 25 segundos (1.250 transações adicionais).
 
@@ -24,7 +24,7 @@ Utilizamos o **k6** (Grafana Labs), padrao de mercado para testes de carga e eng
 
 ## 3. Como Executar a Bateria Completa de Testes
 
-Com os containers em execucao via `docker-compose up -d`:
+Com os containers em execução via `docker-compose up -d`:
 
 ```bash
 # Execucao automatizada de toda a bateria (Leitura + Escrita):
@@ -32,7 +32,7 @@ chmod +x tests/load/executar-bateria.sh
 ./tests/load/executar-bateria.sh
 ```
 
-Ou executar cenarios individuais via Docker k6:
+Ou executar cenários individuais via Docker k6:
 
 ```bash
 # Apenas leitura de consolidado:

@@ -6,13 +6,13 @@
 [![Tests](https://img.shields.io/badge/Tests-140%20passed%20(100%25)-success.svg)]()
 [![License](https://img.shields.io/badge/License-MIT-lightgrey.svg)]()
 
-Arquitetura de microsservicos escalavel, resiliente e de alta disponibilidade desenvolvida em **C# (.NET 8)**, **Clean Architecture**, **CQRS**, **Event-Driven Architecture (RabbitMQ)**, **PostgreSQL** e **Redis**.
+Arquitetura de microsserviços escalável, resiliente e de alta disponibilidade desenvolvida em **C# (.NET 8)**, **Clean Architecture**, **CQRS**, **Event-Driven Architecture (RabbitMQ)**, **PostgreSQL** e **Redis**.
 
 ---
 
-## 1. Visao Geral e Desenho da Solucao (C4 Model)
+## 1. Visão Geral e Desenho da Solução (C4 Model)
 
-O sistema foi concebido para atender o controle de fluxo de caixa diario de comerciantes, segregando estritamente a responsabilidade de escrita (lancamentos de debitos e creditos) da responsabilidade de leitura (consolidado diario apurado).
+O sistema foi concebido para atender o controle de fluxo de caixa diário de comerciantes, segregando estritamente a responsabilidade de escrita (lançamentos de débitos e créditos) da responsabilidade de leitura (consolidado diário apurado).
 
 ### 1.1 Diagrama de Contexto (C4 Context)
 
@@ -63,18 +63,18 @@ C4Container
 
 ---
 
-## 2. Decisoes Arquiteturais e Conformidade com o Desafio
+## 2. Decisões Arquiteturais e Conformidade com o Desafio
 
-| Requisito do Desafio | Decisao Arquitetural Adotada | Justificativa Tecnica |
+| Requisito do Desafio | Decisão Arquitetural Adotada | Justificativa Técnica |
 |---|---|---|
-| **Isolamento de Falhas (Lancamentos vs Consolidado)** | Arquitetura Orientada a Eventos (EDA) com RabbitMQ | Se o servico de consolidado diario (ou seu banco/worker) ficar temporariamente indisponivel, o servico de lancamentos continua 100% operacional gravando no PostgreSQL e enfileirando eventos no broker. |
-| **Alta Vazao de Leitura (>50 req/s com perda <= 5%)** | Cache Distribuido Redis + Write-Through no Worker + Protecao Anti-Stampede | A API de leitura atende consultas diretamente da memoria RAM do Redis com latencia inferior a 5ms, suportando picos de mais de 100 requisicoes por segundo com zero perda. |
-| **Resiliencia e Tolerancia a Falhas** | Polly v8 (Retry com Jitter, Circuit Breaker, Timeout, Fallback) | Protege conexoes com o broker, banco e cache. Mensagens nao processaveis sao direcionadas para Dead Letter Queue (DLQ) sem travamento da fila principal. |
-| **Padroes e Boas Praticas** | Clean Architecture, DDD, CQRS, SOLID, Factory Methods | Decomposicao clara entre Dominios (Lancamentos e Consolidado), evitando acoplamento e permitindo evolucao independente de cada microsservico. |
-| **Idempotencia Estrita** | Chave de idempotencia no Write-Side e deduplicacao no Worker | Evita duplicacao de lancamentos em caso de reenvio por clientes de rede e garante computacao at-least-once sem adulteracao contabil de saldo. |
-| **Seguranca em Camadas** | STRIDE Threat Modeling, Sanitizacao de Entradas, Containers sem Root | Protecao estruturada contra ameacas, detalhada em documento proprio. |
+| **Isolamento de Falhas (Lançamentos vs Consolidado)** | Arquitetura Orientada a Eventos (EDA) com RabbitMQ | Se o serviço de consolidado diário (ou seu banco/worker) ficar temporariamente indisponível, o serviço de lançamentos continua 100% operacional gravando no PostgreSQL e enfileirando eventos no broker. |
+| **Alta Vazão de Leitura (>50 req/s com perda <= 5%)** | Cache Distribuído Redis + Write-Through no Worker + Proteção Anti-Stampede | A API de leitura atende consultas diretamente da memória RAM do Redis com latência inferior a 5ms, suportando picos de mais de 100 requisições por segundo com zero perda. |
+| **Resiliência e Tolerância a Falhas** | Polly v8 (Retry com Jitter, Circuit Breaker, Timeout, Fallback) | Protege conexões com o broker, banco e cache. Mensagens não processáveis são direcionadas para Dead Letter Queue (DLQ) sem travamento da fila principal. |
+| **Padrões e Boas Práticas** | Clean Architecture, DDD, CQRS, SOLID, Factory Methods | Decomposição clara entre Domínios (Lançamentos e Consolidado), evitando acoplamento e permitindo evolução independente de cada microsserviço. |
+| **Idempotência Estrita** | Chave de idempotência no Write-Side e deduplicação no Worker | Evita duplicação de lançamentos em caso de reenvio por clientes de rede e garante computação at-least-once sem adulteração contábil de saldo. |
+| **Segurança em Camadas** | STRIDE Threat Modeling, Sanitização de Entradas, Containers sem Root | Proteção estruturada contra ameaças, detalhada em documento próprio. |
 
-Documentacao detalhada de suporte:
+Documentação detalhada de suporte:
 - [Guia de Engenharia e Defesa Tecnica da Arquitetura (Estudo para Entrevista)](docs/GUIA_TECNICO_ARQUITETURA.md)
 - [Guia de Integracao da API para Desenvolvedores (Developer Experience)](docs/GUIA_INTEGRACAO_API.md)
 - [ADR 001 - Padrao CQRS e Mensageria Assincrona](docs/adr/ADR-001-cqrs-event-driven.md)
@@ -86,36 +86,36 @@ Documentacao detalhada de suporte:
 
 ---
 
-## 3. Como Executar a Aplicacao
+## 3. Como Executar a Aplicação
 
-### Pre-requisitos
+### Pré-requisitos
 - [Docker](https://www.docker.com/) e Docker Compose instalados.
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) (opcional, apenas para desenvolvimento local e testes).
 
 ### Passo a passo com Docker Compose
 
-1. **Clone o repositorio e inicie todos os containers:**
+1. **Clone o repositório e inicie todos os containers:**
 ```bash
 docker-compose up --build -d
 ```
 
-2. **Verifique o status de saude dos servicos:**
+2. **Verifique o status de saúde dos serviços:**
 ```bash
 docker-compose ps
 ```
 
-3. **Portas e Servicos Expostos:**
+3. **Portas e Serviços Expostos:**
 - **Transactions API:** `http://localhost:5001` (Swagger: `http://localhost:5001/swagger`)
 - **Consolidated API:** `http://localhost:5002` (Swagger: `http://localhost:5002/swagger`)
-- **RabbitMQ Management UI:** `http://localhost:15672` (Usuario: `guest`, Senha: `guest`)
-- **PostgreSQL 16:** `localhost:5432` (Base de Dados: `cashflow_db`, Usuario: `postgres`, Senha: `postgrespassword`)
+- **RabbitMQ Management UI:** `http://localhost:15672` (Usuário: `guest`, Senha: `guest`)
+- **PostgreSQL 16:** `localhost:5432` (Base de Dados: `cashflow_db`, Usuário: `postgres`, Senha: `postgrespassword`)
 - **Redis 7:** `localhost:6379`
 
 ---
 
-## 4. Execucao dos Testes Automatizados
+## 4. Execução dos Testes Automatizados
 
-A solucao contem 140 testes automatizados cobrindo testes unitarios de dominio, testes de manipuladores CQRS, publicacao de eventos com Polly e uma suite completa de testes ponta a ponta (E2E Opaque-Box em 4 Tiers):
+A solução contém 140 testes automatizados cobrindo testes unitários de domínio, testes de manipuladores CQRS, publicação de eventos com Polly e uma suíte completa de testes ponta a ponta (E2E Opaque-Box em 4 Tiers):
 
 ```bash
 # Executar toda a suite de testes da solucao
@@ -125,19 +125,19 @@ dotnet test --logger "console;verbosity=normal"
 dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura
 ```
 
-### 4.1 Execucao do Teste de Carga (>50 RPS)
+### 4.1 Execução do Teste de Carga (>50 RPS)
 Para validar empiricamente a capacidade de sustentar 50 a 100 RPS com 0% de perda:
 ```bash
 # Via container k6 oficial (sem instalacao previa local)
 docker run --rm -i --network=host grafana/k6 run - < tests/load/teste-carga-consolidado.js
 ```
-Detalhes de execucao e resultados no [README de Testes de Carga](tests/load/README.md).
+Detalhes de execução e resultados no [README de Testes de Carga](tests/load/README.md).
 
 ---
 
-## 5. Exemplos Praticos de Chamadas de API
+## 5. Exemplos Práticos de Chamadas de API
 
-### 5.1 Registrar um Credito (Lancamento)
+### 5.1 Registrar um Crédito (Lançamento)
 ```bash
 curl -X POST http://localhost:5001/api/v1/transactions \
   -H "Content-Type: application/json" \
@@ -150,7 +150,7 @@ curl -X POST http://localhost:5001/api/v1/transactions \
   }'
 ```
 
-### 5.2 Registrar um Debito (Lancamento)
+### 5.2 Registrar um Débito (Lançamento)
 ```bash
 curl -X POST http://localhost:5001/api/v1/transactions \
   -H "Content-Type: application/json" \
@@ -163,7 +163,7 @@ curl -X POST http://localhost:5001/api/v1/transactions \
   }'
 ```
 
-### 5.3 Consultar o Consolidado Diario (Atende >50 req/s via Redis)
+### 5.3 Consultar o Consolidado Diário (Atende >50 req/s via Redis)
 ```bash
 curl -X GET "http://localhost:5002/api/v1/consolidated/MERCHANT_001/2026-09-05" \
   -H "Accept: application/json"
@@ -185,19 +185,19 @@ curl -X GET "http://localhost:5002/api/v1/consolidated/MERCHANT_001/2026-09-05" 
 
 ---
 
-## 6. Evolucoes Futuras da Arquitetura
+## 6. Evoluções Futuras da Arquitetura
 
 ### 6.1 Change Data Capture (CDC) com Debezium & Apache Kafka
-- **Objetivo:** Eliminar o problema de gravacao dupla (*Dual-Write*) entre banco relacional e broker de mensageria.
-- **Evolucao:** Em vez de a aplicacao persistir no PostgreSQL e publicar no RabbitMQ em duas etapas de rede, a API grava a transacao e insere o evento em uma tabela `outbox_events` na mesma transacao ACID local. O conector **Debezium for PostgreSQL** monitora o Write-Ahead Log (WAL) e transmite os eventos para topicos particionados por `merchant_id` no **Apache Kafka**, assegurando semantica *exactly-once* e ordenacao cronologica garantida por comerciante.
+- **Objetivo:** Eliminar o problema de gravação dupla (*Dual-Write*) entre banco relacional e broker de mensageria.
+- **Evolução:** Em vez de a aplicação persistir no PostgreSQL e publicar no RabbitMQ em duas etapas de rede, a API grava a transação e insere o evento em uma tabela `outbox_events` na mesma transação ACID local. O conector **Debezium for PostgreSQL** monitora o Write-Ahead Log (WAL) e transmite os eventos para tópicos particionados por `merchant_id` no **Apache Kafka**, assegurando semântica *exactly-once* e ordenação cronológica garantida por comerciante.
 
-### 6.2 Orquestracao em Kubernetes (K8s) & Autoscaling Baseado em Eventos (KEDA)
-- **Deployment e Isolamento:** Separacao de cada microsservico em Pods e Namespaces proprios, com Resource Requests e Limits rigorosos.
-- **KEDA (Kubernetes Event-driven Autoscaling):** O `Consolidated Worker` escalara horizontalmente de 1 para dezenas de pods com base no tamanho da fila do broker (*consumer lag*), permitindo absorver picos repentinos sem represamento de mensagens.
-- **Horizontal Pod Autoscaler (HPA):** A `Consolidated API` escalara com base em RPS e utilizacao de CPU, garantindo que o tempo de resposta permaneca submilisegundo mesmo sob sobrecarga.
+### 6.2 Orquestração em Kubernetes (K8s) & Autoscaling Baseado em Eventos (KEDA)
+- **Deployment e Isolamento:** Separação de cada microsserviço em Pods e Namespaces próprios, com Resource Requests e Limits rigorosos.
+- **KEDA (Kubernetes Event-driven Autoscaling):** O `Consolidated Worker` escalará horizontalmente de 1 para dezenas de pods com base no tamanho da fila do broker (*consumer lag*), permitindo absorver picos repentinos sem represamento de mensagens.
+- **Horizontal Pod Autoscaler (HPA):** A `Consolidated API` escalará com base em RPS e utilização de CPU, garantindo que o tempo de resposta permaneça submilisegundo mesmo sob sobrecarga.
 
 ### 6.3 Stack de Observabilidade com Elastic Stack (ELK) e OpenTelemetry
-- **Rastreamento Distribuido (Distributed Tracing):** Instrumentacao com OpenTelemetry SDK (.NET 8) propagando W3C TraceContext no cabecalho HTTP e nas propriedades das mensagens AMQP, permitindo acompanhar o ciclo de vida de uma transacao desde a chamada REST ate a consolidacao no Redis.
-- **Elasticsearch e Logstash/FluentBit:** Indexacao e busca centralizada de logs estruturados correlacionados por `traceId` e `merchantId`.
-- **Kibana e Elastic APM:** Dashboards em tempo real de latencia (p95, p99), throughput e taxas de erro.
-- **Prometheus & Grafana:** Coleta de metricas operacionais de Circuit Breaker (Polly), taxas de cache hit/miss no Redis e uso de conexoes no PostgreSQL.
+- **Rastreamento Distribuído (Distributed Tracing):** Instrumentação com OpenTelemetry SDK (.NET 8) propagando W3C TraceContext no cabeçalho HTTP e nas propriedades das mensagens AMQP, permitindo acompanhar o ciclo de vida de uma transação desde a chamada REST até a consolidação no Redis.
+- **Elasticsearch e Logstash/FluentBit:** Indexação e busca centralizada de logs estruturados correlacionados por `traceId` e `merchantId`.
+- **Kibana e Elastic APM:** Dashboards em tempo real de latência (p95, p99), throughput e taxas de erro.
+- **Prometheus & Grafana:** Coleta de métricas operacionais de Circuit Breaker (Polly), taxas de cache hit/miss no Redis e uso de conexões no PostgreSQL.

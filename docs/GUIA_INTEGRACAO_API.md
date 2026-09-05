@@ -1,26 +1,26 @@
-# Guia de Integracao da API (Developer Experience)
+# Guia de Integração da API (Developer Experience)
 
-Este documento e destinado aos desenvolvedores, equipes de front-end, aplicativos moveis e sistemas integradores que consomem os servicos da **CashFlow Platform**.
+Este documento é destinado aos desenvolvedores, equipes de front-end, aplicativos móveis e sistemas integradores que consomem os serviços da **CashFlow Platform**.
 
 ---
 
-## 1. Visao Geral das APIs
+## 1. Visão Geral das APIs
 
-A plataforma expoe duas APIs RESTful independentes com suporte a alta disponibilidade e idempotencia estrita:
+A plataforma expõe duas APIs RESTful independentes com suporte a alta disponibilidade e idempotência estrita:
 
-| Servico | URL Base Local | Swagger / OpenAPI | Finalidade |
+| Serviço | URL Base Local | Swagger / OpenAPI | Finalidade |
 |---|---|---|---|
-| **Transactions API** | `http://localhost:5001` | `http://localhost:5001/swagger` | Registro de entradas (creditos) e saidas (debitos) financeiros |
-| **Consolidated API** | `http://localhost:5002` | `http://localhost:5002/swagger` | Consulta do relatorio de saldo consolidado diario por comerciante |
+| **Transactions API** | `http://localhost:5001` | `http://localhost:5001/swagger` | Registro de entradas (créditos) e saídas (débitos) financeiros |
+| **Consolidated API** | `http://localhost:5002` | `http://localhost:5002/swagger` | Consulta do relatório de saldo consolidado diário por comerciante |
 
 ---
 
-## 2. Convencao de Idempotencia no Lancamento de Transacoes
+## 2. Convenção de Idempotência no Lançamento de Transações
 
-Para evitar cobrancas ou lancamentos duplicados provocados por instabilidade de rede ou retentativas automaticas de aplicativos de checkout, a API de Lancamentos implementa o padrao de **Chave de Idempotencia**.
+Para evitar cobranças ou lançamentos duplicados provocados por instabilidade de rede ou retentativas automáticas de aplicativos de checkout, a API de Lançamentos implementa o padrão de **Chave de Idempotência**.
 
 ### Como Utilizar:
-Envie um identificador unico universal (UUIDv4) no cabecalho HTTP `X-Idempotency-Key` em cada requisicao de lancamento:
+Envie um identificador único universal (UUIDv4) no cabeçalho HTTP `X-Idempotency-Key` em cada requisição de lançamento:
 
 ```http
 POST /api/v1/transactions HTTP/1.1
@@ -36,23 +36,23 @@ X-Idempotency-Key: e4d93f72-8854-4a7b-a3d1-9f20e4b86123
 }
 ```
 
-### Ciclo de Resposta da Idempotencia:
-* **Primeira requisicao bem-sucedida:** Retorna `HTTP 201 Created` contendo os dados do lancamento persistido e o cabecalho `Location`.
-* **Requisicao repetida com a mesma chave e os mesmos dados:** Retorna `HTTP 200 OK` devolvendo o registro existente sem criar duplicidade no caixa.
-* **Requisicao com chave identica mas com valores/dados divergentes:** Retorna `HTTP 409 Conflict` (ProblemDetails RFC 7231) alertando que a chave foi reutilizada indevidamente com outra intencao de negocio.
+### Ciclo de Resposta da Idempotência:
+* **Primeira requisição bem-sucedida:** Retorna `HTTP 201 Created` contendo os dados do lançamento persistido e o cabeçalho `Location`.
+* **Requisição repetida com a mesma chave e os mesmos dados:** Retorna `HTTP 200 OK` devolvendo o registro existente sem criar duplicidade no caixa.
+* **Requisição com chave idêntica mas com valores/dados divergentes:** Retorna `HTTP 409 Conflict` (ProblemDetails RFC 7231) alertando que a chave foi reutilizada indevidamente com outra intenção de negócio.
 
 ---
 
-## 3. Endpoints Disponiveis
+## 3. Endpoints Disponíveis
 
-### 3.1 Registrar Lancamento Financeiro
-* **Metodo:** `POST`
+### 3.1 Registrar Lançamento Financeiro
+* **Método:** `POST`
 * **Rota:** `/api/v1/transactions`
 * **Headers:**
   * `Content-Type: application/json`
   * `X-Idempotency-Key: <UUIDv4>` (Recomendado)
 
-#### Corpo da Requisicao (JSON):
+#### Corpo da Requisição (JSON):
 ```json
 {
   "merchantId": "LOJA_CENTRO_01",
@@ -63,10 +63,10 @@ X-Idempotency-Key: e4d93f72-8854-4a7b-a3d1-9f20e4b86123
 ```
 
 *Campos:*
-* `merchantId` (obrigatorio, string, max 50): Identificador do estabelecimento.
-* `amount` (obrigatorio, decimal > 0.00): Valor monetario positivo.
-* `type` (obrigatorio, string): Natureza contabil (`Credit` para entradas, `Debit` para saidas).
-* `description` (obrigatorio, string, max 255): Motivo do lancamento (proibido conter emojis).
+* `merchantId` (obrigatório, string, max 50): Identificador do estabelecimento.
+* `amount` (obrigatório, decimal > 0.00): Valor monetário positivo.
+* `type` (obrigatório, string): Natureza contábil (`Credit` para entradas, `Debit` para saídas).
+* `description` (obrigatório, string, max 255): Motivo do lançamento (proibido conter emojis).
 
 #### Exemplo de Resposta de Sucesso (HTTP 201 Created):
 ```json
@@ -81,8 +81,8 @@ X-Idempotency-Key: e4d93f72-8854-4a7b-a3d1-9f20e4b86123
 
 ---
 
-### 3.2 Consultar Lancamento por Identificador
-* **Metodo:** `GET`
+### 3.2 Consultar Lançamento por Identificador
+* **Método:** `GET`
 * **Rota:** `/api/v1/transactions/{id}`
 * **Exemplo de Resposta (HTTP 200 OK):**
 ```json
@@ -98,12 +98,12 @@ X-Idempotency-Key: e4d93f72-8854-4a7b-a3d1-9f20e4b86123
 
 ---
 
-### 3.3 Consultar Saldo Diario Consolidado
-* **Metodo:** `GET`
+### 3.3 Consultar Saldo Diário Consolidado
+* **Método:** `GET`
 * **Rota:** `/api/v1/consolidated/{merchantId}/{date}`
-* **Parametros de Rota:**
-  * `merchantId`: Codigo do comerciante (ex: `LOJA_CENTRO_01`).
-  * `date`: Data contábil no padrao ISO 8601 (`yyyy-MM-dd`, ex: `2026-09-05`).
+* **Parâmetros de Rota:**
+  * `merchantId`: Código do comerciante (ex: `LOJA_CENTRO_01`).
+  * `date`: Data contábil no padrão ISO 8601 (`yyyy-MM-dd`, ex: `2026-09-05`).
 
 #### Exemplo de Resposta de Sucesso (HTTP 200 OK):
 ```json
@@ -119,15 +119,15 @@ X-Idempotency-Key: e4d93f72-8854-4a7b-a3d1-9f20e4b86123
 }
 ```
 
-*Nota sobre desempenho:* A propriedade `"cached": true` indica que a consulta foi servida em menos de 5 milissegundos a partir da memoria RAM do Redis. Em caso de dias sem movimentacao registrada, a API retorna `HTTP 200 OK` com saldos zerados (`closingBalance: 0.00`).
+*Nota sobre desempenho:* A propriedade `"cached": true` indica que a consulta foi servida em menos de 5 milissegundos a partir da memória RAM do Redis. Em caso de dias sem movimentação registrada, a API retorna `HTTP 200 OK` com saldos zerados (`closingBalance: 0.00`).
 
 ---
 
-## 4. Tratamento de Erros e Padrao ProblemDetails (RFC 7231)
+## 4. Tratamento de Erros e Padrão ProblemDetails (RFC 7231)
 
-Todas as respostas de erro da plataforma seguem estritamente o padrao **RFC 7231 / RFC 7807 (ProblemDetails)**, com titulos e detalhes redigidos em portugues culto.
+Todas as respostas de erro da plataforma seguem estritamente o padrão **RFC 7231 / RFC 7807 (ProblemDetails)**, com títulos e detalhes redigidos em português culto.
 
-### Exemplo de Erro de Validacao (HTTP 400 Bad Request):
+### Exemplo de Erro de Validação (HTTP 400 Bad Request):
 ```json
 {
   "type": "https://tools.ietf.org/html/rfc7231#section-6.5.1",
@@ -137,7 +137,7 @@ Todas as respostas de erro da plataforma seguem estritamente o padrao **RFC 7231
 }
 ```
 
-### Exemplo de Conflito de Idempotencia (HTTP 409 Conflict):
+### Exemplo de Conflito de Idempotência (HTTP 409 Conflict):
 ```json
 {
   "type": "https://tools.ietf.org/html/rfc7231#section-6.5.8",
@@ -149,7 +149,7 @@ Todas as respostas de erro da plataforma seguem estritamente o padrao **RFC 7231
 
 ---
 
-## 5. Colecao de Exemplos Praticos com cURL
+## 5. Coleção de Exemplos Práticos com cURL
 
 ```bash
 # 1. Registrar um Credito de R$ 500,00

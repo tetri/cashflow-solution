@@ -1,12 +1,12 @@
-# Guia de Engenharia e Defesa Tecnica da Arquitetura
+# Guia de Engenharia e Defesa Técnica da Arquitetura
 
-Este documento e o manual definitivo para compreensao profunda, estudo conceitual e preparacao para a entrevista tecnica de defesa da solucao **CashFlow Platform**. Ele correlaciona a teoria de sistemas distribuidos diretamente com a implementacao em C# (.NET 8) presente no repositorio.
+Este documento é o manual definitivo para compreensão profunda, estudo conceitual e preparação para a entrevista técnica de defesa da solução **CashFlow Platform**. Ele correlaciona a teoria de sistemas distribuídos diretamente com a implementação em C# (.NET 8) presente no repositório.
 
 ---
 
-## 1. Visao Geral e Fluxo de Dados Ponta a Ponta
+## 1. Visão Geral e Fluxo de Dados Ponta a Ponta
 
-A solucao adota o padrao **CQRS (Command Query Responsibility Segregation)** orquestrado de forma assincrona por **Event-Driven Architecture (EDA)**.
+A solução adota o padrão **CQRS (Command Query Responsibility Segregation)** orquestrado de forma assíncrona por **Event-Driven Architecture (EDA)**.
 
 ```mermaid
 sequenceDiagram
@@ -57,49 +57,49 @@ sequenceDiagram
 
 ---
 
-## 2. Conceitos Essenciais Explicados no Codigo
+## 2. Conceitos Essenciais Explicados no Código
 
 ### 2.1 CQRS (Command Query Responsibility Segregation)
-- **O que e:** Separacao estrutural e comportamental entre operacoes que alteram estado (Commands / Writes) e operacoes que apenas leem estado (Queries / Reads).
-- **Por que foi usado:** O servico de lancamentos possui alta criticidade de disponibilidade para os caixas das lojas, enquanto o consolidado exige suporte a rajadas intensas de leitura (50 a 100 RPS). Misturar ambas em tabelas com locks ou na mesma transacao causaria lentidao nos lancamentos sob carga de relatorios.
-- **Onde ver no codigo:**
+- **O que é:** Separação estrutural e comportamental entre operações que alteram estado (Commands / Writes) e operações que apenas leem estado (Queries / Reads).
+- **Por que foi usado:** O serviço de lançamentos possui alta criticidade de disponibilidade para os caixas das lojas, enquanto o consolidado exige suporte a rajadas intensas de leitura (50 a 100 RPS). Misturar ambas em tabelas com locks ou na mesma transação causaria lentidão nos lançamentos sob carga de relatórios.
+- **Onde ver no código:**
   - Lado de Escrita: `src/Services/Transactions/` com `CreateTransactionCommandHandler.cs` e `TransactionsDbContext.cs`.
   - Lado de Leitura: `src/Services/Consolidated/` com `GetDailyConsolidatedQueryHandler.cs`, `ConsolidatedDbContext.cs` e `TransactionEventConsumer.cs`.
 
-### 2.2 Idempotencia em Dois Niveis
-Idempotencia e a propriedade pela qual uma operacao produz o mesmo resultado independentemente de ser executada uma ou multiplas vezes.
-1. **Idempotencia no Write-Side (API):**
-   - **Problema:** Um cliente mobile submete uma transacao de R$ 100,00, a rede oscila apos a gravacao e o cliente repete a requisicao. Sem idempotencia, seriam cobrados R$ 200,00.
-   - **Solucao no codigo:** O cliente envia o cabecalho `X-Idempotency-Key` (UUIDv4). O `TransactionConfiguration.cs` define um indice unico no banco: `HasIndex(e => new { e.MerchantId, e.IdempotencyKey }).IsUnique()`.
-   - Se os dados forem identicos, a API retorna `HTTP 200 OK` (e nao 201), devolvendo a transacao original sem inserir nova linha. Se a mesma chave for reutilizada com valor diferente, lanca `IdempotencyConflictException` com `HTTP 409 Conflict`.
-2. **Idempotencia no Worker (Deduplicacao de Mensagens):**
-   - **Problema:** O broker RabbitMQ garante entrega *at-least-once* (ao menos uma vez). Em caso de reinicializacao de rede antes do Ack, a mesma mensagem pode ser reenviada.
-   - **Solucao no codigo:** Em `TransactionEventConsumer.cs`, antes de calcular o saldo, o worker invoca `_repository.IsEventProcessedAsync(event.EventId)`. Se ja constar na tabela `processed_events`, a mensagem recebe `BasicAck` imediato e e descartada sem somar saldo novamente.
+### 2.2 Idempotência em Dois Níveis
+Idempotência é a propriedade pela qual uma operação produz o mesmo resultado independentemente de ser executada uma ou múltiplas vezes.
+1. **Idempotência no Write-Side (API):**
+   - **Problema:** Um cliente mobile submete uma transação de R$ 100,00, a rede oscila após a gravação e o cliente repete a requisição. Sem idempotência, seriam cobrados R$ 200,00.
+   - **Solução no código:** O cliente envia o cabeçalho `X-Idempotency-Key` (UUIDv4). O `TransactionConfiguration.cs` define um índice único no banco: `HasIndex(e => new { e.MerchantId, e.IdempotencyKey }).IsUnique()`.
+   - Se os dados forem idênticos, a API retorna `HTTP 200 OK` (e não 201), devolvendo a transação original sem inserir nova linha. Se a mesma chave for reutilizada com valor diferente, lança `IdempotencyConflictException` com `HTTP 409 Conflict`.
+2. **Idempotência no Worker (Deduplicação de Mensagens):**
+   - **Problema:** O broker RabbitMQ garante entrega *at-least-once* (ao menos uma vez). Em caso de reinicialização de rede antes do Ack, a mesma mensagem pode ser reenviada.
+   - **Solução no código:** Em `TransactionEventConsumer.cs`, antes de calcular o saldo, o worker invoca `_repository.IsEventProcessedAsync(event.EventId)`. Se já constar na tabela `processed_events`, a mensagem recebe `BasicAck` imediato e é descartada sem somar saldo novamente.
 
-### 2.3 Resiliencia com Polly v8
-Polly e uma biblioteca de politicas de resiliencia e tolerancia a falhas para .NET. A versao 8 introduziu o padrao `ResiliencePipelineBuilder`, com menor alocacao de memoria e execucao assincrona de alto desempenho.
+### 2.3 Resiliência com Polly v8
+Polly é uma biblioteca de políticas de resiliência e tolerância a falhas para .NET. A versão 8 introduziu o padrão `ResiliencePipelineBuilder`, com menor alocação de memória e execução assíncrona de alto desempenho.
 
 1. **Backoff Exponencial com Jitter:**
-   - **O que e:** Se uma chamada de rede falhar, a primeira tentativa aguarda 200ms, a segunda 400ms e a terceira 800ms. O **Jitter** adiciona uma variacao aleatoria (ex: 215ms, 385ms, 820ms).
-   - **Por que o Jitter e crucial:** Sem jitter, se 1.000 clientes falharem juntos, todos tentarao reconectar exatamente nos mesmos milissegundos (200ms, 400ms...), provocando o fenomeno conhecido como **Thundering Herd** (Efeito Manada) e derrubando novamente o servico que tentava se recuperar.
+   - **O que é:** Se uma chamada de rede falhar, a primeira tentativa aguarda 200ms, a segunda 400ms e a terceira 800ms. O **Jitter** adiciona uma variação aleatória (ex: 215ms, 385ms, 820ms).
+   - **Por que o Jitter é crucial:** Sem jitter, se 1.000 clientes falharem juntos, todos tentarão reconectar exatamente nos mesmos milissegundos (200ms, 400ms...), provocando o fenômeno conhecido como **Thundering Herd** (Efeito Manada) e derrubando novamente o serviço que tentava se recuperar.
    - **Onde ver:** `RabbitMqEventPublisher.cs`.
 
 2. **Circuit Breaker (Disjuntor):**
    - **Como funciona:**
-     - **Estado Fechado (Closed):** Operacao normal. O circuito monitora falhas.
-     - **Estado Aberto (Open):** Se a taxa de falhas ultrapassar o limiar (ex: 50%), o disjuntor abre. Todas as chamadas subsequentes sao rejeitadas imediatamente (*Fail-Fast*) sem trafegar na rede, evitando sobrecarregar o recurso ja degradado.
-     - **Estado Semi-Aberto (Half-Open):** Apos um periodo de espera (ex: 15s), o circuito permite a passagem de uma quantidade restrita de chamadas de teste. Se tiverem sucesso, o circuito fecha; se falharem, volta a abrir.
+     - **Estado Fechado (Closed):** Operação normal. O circuito monitora falhas.
+     - **Estado Aberto (Open):** Se a taxa de falhas ultrapassar o limiar (ex: 50%), o disjuntor abre. Todas as chamadas subsequentes são rejeitadas imediatamente (*Fail-Fast*) sem trafegar na rede, evitando sobrecarregar o recurso já degradado.
+     - **Estado Semi-Aberto (Half-Open):** Após um período de espera (ex: 15s), o circuito permite a passagem de uma quantidade restrita de chamadas de teste. Se tiverem sucesso, o circuito fecha; se falharem, volta a abrir.
 
 3. **Dead Letter Queue (DLQ) para Mensagens Venenosas:**
-   - Mensagens com JSON corrompido ou erro irrecuperavel recebem `BasicNack(requeue: false)` e sao roteadas pelo RabbitMQ para a exchange `cashflow.events.dlx` e enfileiradas na fila `cashflow.consolidated.transactions.dlq`, permitindo investigacao forense e replay posterior sem travar os demais lancamentos.
+   - Mensagens com JSON corrompido ou erro irrecuperável recebem `BasicNack(requeue: false)` e são roteadas pelo RabbitMQ para a exchange `cashflow.events.dlx` e enfileiradas na fila `cashflow.consolidated.transactions.dlq`, permitindo investigação forense e replay posterior sem travar os demais lançamentos.
 
-### 2.4 Estrategia de Caching e Mitigacao de Cache Stampede
-1. **Cache-Aside:** A aplicacao tenta ler do cache. Se nao encontrar (Miss), busca no banco relacional e escreve no cache para as proximas requisicoes.
-2. **Write-Through:** O Worker, assim que calcula a nova transacao no PostgreSQL, ja atualiza a respectiva chave no Redis, garantindo que a primeira leitura ja encontre o dado em memoria.
+### 2.4 Estratégia de Caching e Mitigação de Cache Stampede
+1. **Cache-Aside:** A aplicação tenta ler do cache. Se não encontrar (Miss), busca no banco relacional e escreve no cache para as próximas requisições.
+2. **Write-Through:** O Worker, assim que calcula a nova transação no PostgreSQL, já atualiza a respectiva chave no Redis, garantindo que a primeira leitura já encontre o dado em memória.
 3. **Cache Stampede (Efeito Manada no Cache):**
-   - **O cenario critico:** O cache do comerciante expira as 12:00:00. No mesmo segundo chegam 100 requisicoes simultaneas. Se todas observarem Cache Miss, todas as 100 fariam queries pesadas no PostgreSQL simultaneamente, exaurindo o pool de conexoes.
-   - **Solucao no codigo:** Em `GetDailyConsolidatedQueryHandler.cs`, usamos **Double-Checked Locking com SemaphoreSlim**:
-     1. Le o cache. Se encontrar, retorna (< 5ms).
+   - **O cenário crítico:** O cache do comerciante expira às 12:00:00. No mesmo segundo chegam 100 requisições simultâneas. Se todas observarem Cache Miss, todas as 100 fariam queries pesadas no PostgreSQL simultaneamente, exaurindo o pool de conexões.
+   - **Solução no código:** Em `GetDailyConsolidatedQueryHandler.cs`, usamos **Double-Checked Locking com SemaphoreSlim**:
+     1. Lê o cache. Se encontrar, retorna (< 5ms).
      2. Se miss, adquire `await TravaSincronizacaoCache.WaitAsync()`.
      3. Faz um segundo check no cache (outra thread pode ter acabado de preencher enquanto aguardava a trava).
      4. Apenas se continuar nulo, consulta o PostgreSQL e preenche o Redis.
@@ -107,58 +107,58 @@ Polly e uma biblioteca de politicas de resiliencia e tolerancia a falhas para .N
 
 ---
 
-## 3. Guia de Perguntas de Choque da Banca (Simulacao de Entrevista)
+## 3. Guia de Perguntas de Choque da Banca (Simulação de Entrevista)
 
-### Pergunta 1: "Por que voce escolheu RabbitMQ e nao Apache Kafka para a mensageria?"
+### Pergunta 1: "Por que você escolheu RabbitMQ e não Apache Kafka para a mensageria?"
 > **Resposta de Arquiteto:**
-> *"Para este estagio da plataforma, o RabbitMQ e ideal por seu modelo de Smart Broker / Dumb Consumer, oferecendo roteamento flexivel por Topic Exchanges, controle fino de backpressure por consumidor via prefetch e suporte nativo a Dead Letter Exchanges (DLX) para mensagens venenosas sem complexidade operacional de gerenciamento de offsets de particao.*
-> *No entanto, documentei no README e no plano de evolucao que, a medida que o volume atinja dezenas de milhares de lancamentos por segundo com necessidade de Event Sourcing puro e streaming de eventos via Change Data Capture (CDC com Debezium lendo o WAL do PostgreSQL), a arquitetura esta projetada para transicionar naturalmente para o Apache Kafka com topicos particionados por merchant_id."*
+> *"Para este estágio da plataforma, o RabbitMQ é ideal por seu modelo de Smart Broker / Dumb Consumer, oferecendo roteamento flexível por Topic Exchanges, controle fino de backpressure por consumidor via prefetch e suporte nativo a Dead Letter Exchanges (DLX) para mensagens venenosas sem complexidade operacional de gerenciamento de offsets de partição.*
+> *No entanto, documentei no README e no plano de evolução que, à medida que o volume atinja dezenas de milhares de lançamentos por segundo com necessidade de Event Sourcing puro e streaming de eventos via Change Data Capture (CDC com Debezium lendo o WAL do PostgreSQL), a arquitetura está projetada para transicionar naturalmente para o Apache Kafka com tópicos particionados por merchant_id."*
 
-### Pergunta 2: "Como voce garante que o servico de lancamentos nao pare se o servico de consolidado cair?"
+### Pergunta 2: "Como você garante que o serviço de lançamentos não pare se o serviço de consolidado cair?"
 > **Resposta de Arquiteto:**
-> *"Ha um desacoplamento temporal e espacial completo. O servico de lancamentos (Write-Side) grava localmente na tabela transactions do PostgreSQL e publica o evento TransactionCreatedEvent no RabbitMQ. Ele nao faz nenhuma chamada HTTP sincrona nem compartilha tabelas com o servico de consolidado.*
-> *Se o banco do consolidado, o cache Redis ou o worker de consolidacao cairem por completo, a fila no RabbitMQ armazena as mensagens de forma duravel em disco. Quando o servico de consolidado se recuperar, o worker consome o backlog com idempotencia sem que nenhuma transacao de venda seja perdida ou bloqueada."*
+> *"Há um desacoplamento temporal e espacial completo. O serviço de lançamentos (Write-Side) grava localmente na tabela transactions do PostgreSQL e publica o evento TransactionCreatedEvent no RabbitMQ. Ele não faz nenhuma chamada HTTP síncrona nem compartilha tabelas com o serviço de consolidado.*
+> *Se o banco do consolidado, o cache Redis ou o worker de consolidação caírem por completo, a fila no RabbitMQ armazena as mensagens de forma durável em disco. Quando o serviço de consolidado se recuperar, o worker consome o backlog com idempotência sem que nenhuma transação de venda seja perdida ou bloqueada."*
 
-### Pergunta 3: "O que acontece se duas transacoes com o mesmo IdempotencyKey forem submetidas no mesmo milissegundo em servidores diferentes?"
+### Pergunta 3: "O que acontece se duas transações com o mesmo IdempotencyKey forem submetidas no mesmo milissegundo em servidores diferentes?"
 > **Resposta de Arquiteto:**
-> *"Ambas passarao pela validacao em memoria e tentarao persistir no PostgreSQL. Como definimos um indice unico composto por (merchant_id, idempotency_key), o mecanismo ACID de controle de concorrencia do banco concedera sucesso a primeira e rejeitara a segunda com violacao de restricao unica (Unique Constraint Violation / PostgresException 23505).*
-> *O TransactionRepository captura essa excecao, recupera a transacao vencedora e a devolve com o flag IsIdempotentDuplicate=true. A API entao retorna HTTP 200 OK com os dados da transacao original, garantindo idempotencia consistente sem lock de aplicacao distribuido."*
+> *"Ambas passarão pela validação em memória e tentarão persistir no PostgreSQL. Como definimos um índice único composto por (merchant_id, idempotency_key), o mecanismo ACID de controle de concorrência do banco concederá sucesso à primeira e rejeitará a segunda com violação de restrição única (Unique Constraint Violation / PostgresException 23505).*
+> *O TransactionRepository captura essa exceção, recupera a transação vencedora e a devolve com o flag IsIdempotentDuplicate=true. A API então retorna HTTP 200 OK com os dados da transação original, garantindo idempotência consistente sem lock de aplicação distribuído."*
 
-### Pergunta 4: "Como foi comprovado o requisito de 50 requisicoes por segundo com no maximo 5% de perda?"
+### Pergunta 4: "Como foi comprovado o requisito de 50 requisições por segundo com no máximo 5% de perda?"
 > **Resposta de Arquiteto:**
-> *"Nao deixei a comprovacao apenas no campo teorico. Desenvolvi um script de teste de carga automatizado utilizando a ferramenta k6 na pasta tests/load/. O script dispara uma taxa de chegada constante de 50 RPS durante 60 segundos e um teste de estresse de 100 RPS.*
-> *O resultado obtido sob Docker foi de 0.00% de perda de requisicoes e tempo de resposta p95 de 6.90ms, com checks de integridade do payload JSON em 100% de sucesso."*
+> *"Não deixei a comprovação apenas no campo teórico. Desenvolvi um script de teste de carga automatizado utilizando a ferramenta k6 na pasta tests/load/. O script dispara uma taxa de chegada constante de 50 RPS durante 60 segundos e um teste de estresse de 100 RPS.*
+> *O resultado obtido sob Docker foi de 0.00% de perda de requisições e tempo de resposta p95 de 6.90ms, com checks de integridade do payload JSON em 100% de sucesso."*
 
-### Pergunta 5: "Por que voce utilizou SemaphoreSlim e nao um lock distribuido no Redis (Redlock) para proteger contra Cache Stampede?"
+### Pergunta 5: "Por que você utilizou SemaphoreSlim e não um lock distribuído no Redis (Redlock) para proteger contra Cache Stampede?"
 > **Resposta de Arquiteto:**
-> *"Utilizamos SemaphoreSlim local porque cada instancia da API de consolidado e capaz de amortecer e serializar suas proprias requisicoes concorrentes com custo zero de rede. Se tivessemos 5 pods da API sob pico, no pior caso seriam feitas apenas 5 consultas pontuais ao PostgreSQL em vez de 50 ou 100 por pod, o que o pool de conexoes do banco suporta com extrema tranquilidade.*
-> *Adotar Redlock distribuido adicionaria latencia de round-trip de rede para aquisicao e liberacao de lock em cada leitura. O SemaphoreSlim com Double-Checked Locking alcanca o equilibrio ideal de desempenho (sub-5ms) e protecao do banco."*
+> *"Utilizamos SemaphoreSlim local porque cada instância da API de consolidado é capaz de amortecer e serializar suas próprias requisições concorrentes com custo zero de rede. Se tivéssemos 5 pods da API sob pico, no pior caso seriam feitas apenas 5 consultas pontuais ao PostgreSQL em vez de 50 ou 100 por pod, o que o pool de conexões do banco suporta com extrema tranquilidade.*
+> *Adotar Redlock distribuído adicionaria latência de round-trip de rede para aquisição e liberação de lock em cada leitura. O SemaphoreSlim com Double-Checked Locking alcança o equilíbrio ideal de desempenho (sub-5ms) e proteção do banco."*
 
-### Pergunta 6: "Por que as mensagens do RabbitMQ nao estao compactadas com Gzip ou Brotli?"
+### Pergunta 6: "Por que as mensagens do RabbitMQ não estão compactadas com Gzip ou Brotli?"
 > **Resposta de Arquiteto:**
-> *"Essa decisao foi deliberada e documentada na ADR 004. O evento contabil TransactionCreatedEvent serializado em JSON UTF-8 minificado possui aproximadamente 200 bytes. Algoritmos de compressao como Brotli e Gzip operam sobre dicionarios de repeticao; em payloads menores que 500 bytes, os metadados do algoritmo geram taxa de compressao negativa (o payload final compactado fica com ~230 bytes, maior que o original) e desperdicam ciclos uteis de CPU no Publisher e no Consumer.*
-> *Para a carga nominal de 50 RPS (trafego irrisorio de ~11 KB/s), o JSON direto e otimo. Documentei formalmente na ADR 004 que a evolucao arquitetural correta para maior densidade e adotar Protocol Buffers (Protobuf binario, reduzindo para 45 bytes) e compactacao Brotli condicional apenas para lotes ou payloads acima de 2 KB (Threshold Compression)."*
+> *"Essa decisão foi deliberada e documentada na ADR 004. O evento contábil TransactionCreatedEvent serializado em JSON UTF-8 minificado possui aproximadamente 200 bytes. Algoritmos de compressão como Brotli e Gzip operam sobre dicionários de repetição; em payloads menores que 500 bytes, os metadados do algoritmo geram taxa de compressão negativa (o payload final compactado fica com ~230 bytes, maior que o original) e desperdiçam ciclos úteis de CPU no Publisher e no Consumer.*
+> *Para a carga nominal de 50 RPS (tráfego irrisório de ~11 KB/s), o JSON direto é ótimo. Documentei formalmente na ADR 004 que a evolução arquitetural correta para maior densidade é adotar Protocol Buffers (Protobuf binário, reduzindo para 45 bytes) e compactação Brotli condicional apenas para lotes ou payloads acima de 2 KB (Threshold Compression)."*
 
-### Pergunta 7: "Por que voce escolheu .NET 8 e nao .NET 9 ou superior?"
+### Pergunta 7: "Por que você escolheu .NET 8 e não .NET 9 ou superior?"
 > **Resposta de Arquiteto:**
-> *"Em sistemas financeiros e bancarios de missao critica, a politica de governanca tecnica prioriza estabilidade e ciclo de vida corporativo: o .NET 8 e uma versao LTS (Long Term Support) oficial da Microsoft, com 3 anos de suporte garantido e patches de seguranca ate o final de 2026. Ja versoes como o .NET 9 sao classificadas como STS (Standard Term Support), com suporte de apenas 18 meses, exigindo upgrades compulsorios frequentes que elevam o custo de manutencao e o risco operacional em producao.*
-> *Alem disso, o .NET 8 ja consolida o C# 12, recursos modernos de alto desempenho com tipos nativos DateOnly/TimeOnly e paridade estavel com todos os drivers do ecossistema (Npgsql, StackExchange.Redis, RabbitMQ.Client)."*
+> *"Em sistemas financeiros e bancários de missão crítica, a política de governança técnica prioriza estabilidade e ciclo de vida corporativo: o .NET 8 é uma versão LTS (Long Term Support) oficial da Microsoft, com 3 anos de suporte garantido e patches de segurança até o final de 2026. Já versões como o .NET 9 são classificadas como STS (Standard Term Support), com suporte de apenas 18 meses, exigindo upgrades compulsórios frequentes que elevam o custo de manutenção e o risco operacional em produção.*
+> *Além disso, o .NET 8 já consolida o C# 12, recursos modernos de alto desempenho com tipos nativos DateOnly/TimeOnly e paridade estável com todos os drivers do ecossistema (Npgsql, StackExchange.Redis, RabbitMQ.Client)."*
 
 ### Pergunta 8: "Quais bibliotecas externas foram adotadas e qual a justificativa de cada uma?"
 > **Resposta de Arquiteto:**
-> *"Adotamos uma arvore estritamente enxuta e justificada para evitar inchaco de dependencias (bloatware) e diminuir vulnerabilidades de cadeia de suprimentos (supply chain attacks):*
-> *1. Npgsql.EntityFrameworkCore.PostgreSQL (v8.0.4): driver e ORM de alto desempenho com suporte nativo a tipos DateOnly, indices compostos unicos para idempotencia e transacoes ACID.*
-> *2. StackExchange.Redis (v2.8.0): cliente padrao de mercado com multiplexacao assincrona compartilhada (IConnectionMultiplexer), viabilizando consultas submilisegundo (< 5ms).*
-> *3. RabbitMQ.Client (v6.8.1): controle cirurgico de mensageria com prefetch=20 (QoS), canais assincronos e roteamento automatico para Dead Letter Queue (DLQ).*
-> *4. Polly / Polly.Core (v8.4.1): versao reescrita do motor de resiliencia com ResiliencePipelineBuilder de alocacao quase zero, provendo Retries com Jitter, Timeout de 3s e Circuit Breaker.*
-> *5. Swashbuckle.AspNetCore (v6.6.2): geracao de contratos OpenAPI/Swagger interativos em portugues culto.*
-> *6. xUnit + NSubstitute + FluentAssertions + Coverlet: framework de testes paralelos com assercoes legiveis, mocks sem acoplamento e metricas de cobertura para a esteira de CI."*
+> *"Adotamos uma árvore estritamente enxuta e justificada para evitar inchaço de dependências (bloatware) e diminuir vulnerabilidades de cadeia de suprimentos (supply chain attacks):*
+> *1. Npgsql.EntityFrameworkCore.PostgreSQL (v8.0.4): driver e ORM de alto desempenho com suporte nativo a tipos DateOnly, índices compostos únicos para idempotência e transações ACID.*
+> *2. StackExchange.Redis (v2.8.0): cliente padrão de mercado com multiplexação assíncrona compartilhada (IConnectionMultiplexer), viabilizando consultas submilisegundo (< 5ms).*
+> *3. RabbitMQ.Client (v6.8.1): controle cirúrgico de mensageria com prefetch=20 (QoS), canais assíncronos e roteamento automático para Dead Letter Queue (DLQ).*
+> *4. Polly / Polly.Core (v8.4.1): versão reescrita do motor de resiliência com ResiliencePipelineBuilder de alocação quase zero, provendo Retries com Jitter, Timeout de 3s e Circuit Breaker.*
+> *5. Swashbuckle.AspNetCore (v6.6.2): geração de contratos OpenAPI/Swagger interativos em português culto.*
+> *6. xUnit + NSubstitute + FluentAssertions + Coverlet: framework de testes paralelos com asserções legíveis, mocks sem acoplamento e métricas de cobertura para a esteira de CI."*
 
 ---
 
-## 4. Roteiro Pratico para Demonstracao ao Vivo
+## 4. Roteiro Prático para Demonstração ao Vivo
 
-Caso a banca peca para voce demonstrar o funcionamento na sua maquina durante a entrevista:
+Caso a banca peça para você demonstrar o funcionamento na sua máquina durante a entrevista:
 
 ### Passo 1: Subir o ecossistema completo
 ```bash
@@ -172,8 +172,8 @@ docker-compose ps
 3. Navegue na aba **Exchanges** e mostre a `cashflow.events`.
 4. Navegue em **Queues** e mostre a fila `cashflow.consolidated.transactions` e sua DLQ vinculada.
 
-### Passo 3: Enviar um lancamento e ver a consolidacao instantanea
-1. Envie um credito via terminal:
+### Passo 3: Enviar um lançamento e ver a consolidação instantânea
+1. Envie um crédito via terminal:
 ```bash
 curl -i -X POST http://localhost:5001/api/v1/transactions \
   -H "Content-Type: application/json" \
@@ -183,7 +183,7 @@ curl -i -X POST http://localhost:5001/api/v1/transactions \
 *Destaque para a banca: Resposta HTTP 201 Created imediata.*
 
 2. Submeta o mesmo comando com a mesma chave:
-*Destaque para a banca: Resposta HTTP 200 OK informando que a transacao ja existe sem duplicar linha no banco.*
+*Destaque para a banca: Resposta HTTP 200 OK informando que a transação já existe sem duplicar linha no banco.*
 
 3. Consulte o consolidado:
 ```bash
@@ -191,7 +191,7 @@ curl -i http://localhost:5002/api/v1/consolidated/LOJA_DEMO/2026-09-05
 ```
 *Destaque para a banca: Resposta HTTP 200 OK com "cached": true, demonstrando o funcionamento integrado do Write-Through.*
 
-### Passo 4: Executar a suite de testes e testes de carga
+### Passo 4: Executar a suíte de testes e testes de carga
 ```bash
 # Executar todos os 140 testes automatizados
 dotnet test --logger "console;verbosity=normal"
