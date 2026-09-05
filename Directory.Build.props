@@ -1,0 +1,50 @@
+<Project>
+  <!-- ========================================================================= -->
+  <!-- Configuracoes Globais de Compilacao e Analise Estatica (.NET 8 / C# 12)  -->
+  <!-- ========================================================================= -->
+  <PropertyGroup>
+    <!-- Alvo de Execucao e Versao da Linguagem -->
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>12.0</LangVersion>
+
+    <!-- Seguranca de Nulabilidade e Usings Globais Implicitos -->
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- Rigor de Compilacao: Avisos tratados estritamente como Erros -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <AnalysisMode>Recommended</AnalysisMode>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+
+    <!-- Geracao Centralizada de Documentacao XML para APIs e Swagger -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- Supressoes Globais Justificadas -->
+    <!-- CA1303: Nao exigir arquivos de recursos satelites (.resx) para strings literais em logs/mensagens -->
+    <!-- 1591: Salvaguarda operacional para compilacao limpa; a documentacao didatica e garantida via R2 -->
+    <NoWarn>$(NoWarn);CA1303;1591</NoWarn>
+
+    <!-- Metadados Institucionais Comuns a Toda a Solution -->
+    <Authors>Time de Engenharia CashFlow</Authors>
+    <Company>CashFlow Solution</Company>
+    <Product>CashFlow Management Platform</Product>
+    <Copyright>Copyright (c) 2026 CashFlow Solution. Todos os direitos reservados.</Copyright>
+  </PropertyGroup>
+
+  <!-- ========================================================================= -->
+  <!-- Configuracoes Customizadas para Projetos de Teste Automatizado            -->
+  <!-- ========================================================================= -->
+  <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('Tests')) or $(MSBuildProjectName.Contains('Test'))">
+    <!-- Testes nao geram arquivos de documentacao XML nem pacotes NuGet -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <IsPackable>false</IsPackable>
+
+    <!-- Supressoes Justificadas para Convencoes de Teste:                      -->
+    <!-- CA1707: Permite o uso de sublinhados em nomes de metodos de teste      -->
+    <!-- CA1822: Permite que metodos [Fact]/[Theory] nao acessem estado         -->
+    <!-- 1591: Desativa exigencia de comentarios XML em metodos de assercao     -->
+    <NoWarn>$(NoWarn);CA1707;CA1822;1591</NoWarn>
+  </PropertyGroup>
+</Project>

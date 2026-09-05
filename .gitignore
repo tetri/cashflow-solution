@@ -1,0 +1,126 @@
+## =========================================================================
+## CashFlow Solution - .gitignore para .NET 8 / C# 12
+## =========================================================================
+
+# --------------------------------------------------------------------------
+# Diretorios e arquivos intermediarios de compilacao (Build)
+# --------------------------------------------------------------------------
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+[Tt]emp/
+out/
+build/
+
+# Configuracoes de saida MSBuild
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Aa]rm/
+[Aa]rm64/
+bld/
+[Bb]in[Dd]etour/
+
+# --------------------------------------------------------------------------
+# Resultados de testes automatizados e relatorios de cobertura
+# --------------------------------------------------------------------------
+[Tt]est[Rr]esult*/
+[Tt]est[Rr]esults/
+TestResults/
+coverage/
+*.trx
+*.coverage
+*.coveragexml
+*.cobertura.xml
+*.opencover.xml
+cobertura.xml
+artifacts/
+
+# --------------------------------------------------------------------------
+# Caches e arquivos de usuario do Visual Studio
+# --------------------------------------------------------------------------
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.ide/
+*.VC.db
+*.VC.opendb
+*.opensdf
+*.opendb
+*.sdf
+ipch/
+
+# --------------------------------------------------------------------------
+# JetBrains Rider / ReSharper
+# --------------------------------------------------------------------------
+.idea/
+_ReSharper*/
+*.sln.iml
+*.DotSettings.user
+
+# --------------------------------------------------------------------------
+# Visual Studio Code
+# --------------------------------------------------------------------------
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# --------------------------------------------------------------------------
+# Pacotes NuGet e arquivos de restore
+# --------------------------------------------------------------------------
+*.nuget.props
+*.nuget.targets
+project.lock.json
+project.assets.json
+packages/
+!**/packages/build/
+
+# --------------------------------------------------------------------------
+# Configuracoes locais de ambiente e segredos (Secrets)
+# --------------------------------------------------------------------------
+appsettings*.local.json
+appsettings.Local.json
+*.env.local
+secrets.json
+.env
+
+# --------------------------------------------------------------------------
+# Arquivos temporarios e de falha (Crash Dumps e Logs)
+# --------------------------------------------------------------------------
+*.log
+*.dmp
+*.mdmp
+*.crash
+
+# --------------------------------------------------------------------------
+# Arquivos de sistema operacional
+# --------------------------------------------------------------------------
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+*~
+
+# --------------------------------------------------------------------------
+# Metadados de agentes e assistentes (Isolamento de workspace)
+# --------------------------------------------------------------------------
+.agents/
+.gemini/
