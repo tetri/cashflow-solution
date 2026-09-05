@@ -57,6 +57,28 @@ public class DailyConsolidated
     }
 
     /// <summary>
+    /// Construtor completo anotado para serializacao e desserializacao JSON (ex: Redis cache).
+    /// </summary>
+    [System.Text.Json.Serialization.JsonConstructor]
+    public DailyConsolidated(
+        string merchantId,
+        DateOnly date,
+        decimal totalCredits,
+        decimal totalDebits,
+        int transactionCount,
+        DateTime lastUpdatedAt,
+        int version)
+    {
+        MerchantId = merchantId;
+        Date = date;
+        TotalCredits = totalCredits;
+        TotalDebits = totalDebits;
+        TransactionCount = transactionCount;
+        LastUpdatedAt = lastUpdatedAt;
+        Version = version;
+    }
+
+    /// <summary>
     /// Inicializa um novo registro de consolidado diario zerado para uma data de negocio.
     /// </summary>
     /// <param name="merchantId">Identificador do comerciante.</param>

@@ -27,9 +27,10 @@ public static class DependencyInjection
         IConfiguration configuration)
     {
         // 1. Configuracao da persistencia relacional com PostgreSQL via Npgsql
-        var connectionString = configuration.GetConnectionString("DefaultConnection")
+        var connectionString = configuration.GetConnectionString("Database")
+            ?? configuration.GetConnectionString("DefaultConnection")
             ?? configuration.GetConnectionString("PostgreSQL")
-            ?? "Host=localhost;Port=5432;Database=cashflow;Username=postgres;Password=postgres";
+            ?? "Host=localhost;Port=5432;Database=cashflow_db;Username=postgres;Password=postgrespassword";
 
         services.AddDbContext<TransactionsDbContext>(options =>
         {

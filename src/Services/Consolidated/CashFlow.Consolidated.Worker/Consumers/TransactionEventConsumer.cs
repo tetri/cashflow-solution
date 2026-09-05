@@ -13,13 +13,14 @@ namespace CashFlow.Consolidated.Worker.Consumers;
 /// e confiavel dos eventos de transacao postados no RabbitMQ.
 /// Implementa deduplicacao idempotente, atualizacao atomica de saldo no PostgreSQL,
 /// sincronizacao imediata no Redis (Write-Through) e roteamento de mensagens venenosas para DLQ.
+/// Utiliza IServiceScopeFactory para resolver dependencias Scoped (como o DbContext e Repositorios)
+/// de forma segura a partir de um servico Singleton (BackgroundService).
 /// </summary>
 public class TransactionEventConsumer : BackgroundService
 {
     private readonly IConnection _connection;
     private readonly IModel _channel;
-    private readonly IDailyConsolidatedRepository _repository;
-    private readonly IConsolidatedCacheService _cacheService;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<TransactionEventConsumer> _logger;
 
     private const string QueueName = "cashflow.consolidated.transactions";
@@ -33,13 +34,11 @@ public class TransactionEventConsumer : BackgroundService
     /// </summary>
     public TransactionEventConsumer(
         IConnection connection,
-        IDailyConsolidatedRepository repository,
-        IConsolidatedCacheService cacheService,
+        IServiceScopeFactory scopeFactory,
         ILogger<TransactionEventConsumer> logger)
     {
         _connection = connection;
-        _repository = repository;
-        _cacheService = cacheService;
+        _scopeFactory = scopeFactory;
         _logger = logger;
 
         _channel = _connection.CreateModel();
@@ -89,8 +88,13 @@ public class TransactionEventConsumer : BackgroundService
 
                 _logger.LogInformation("Processando evento {EventId} para comerciante {MerchantId}...", @event.EventId, @event.MerchantId);
 
+                // Cria um escopo isolado de injecao de dependencias para processamento seguro da mensagem
+                using var scope = _scopeFactory.CreateScope();
+                var repository = scope.ServiceProvider.GetRequiredService<IDailyConsolidatedRepository>();
+                var cacheService = scope.ServiceProvider.GetRequiredService<IConsolidatedCacheService>();
+
                 // 1. Garantia de Idempotencia: Verifica se o identificador do evento ja foi computado
-                if (await _repository.IsEventProcessedAsync(@event.EventId, stoppingToken))
+                if (await repository.IsEventProcessedAsync(@event.EventId, stoppingToken))
                 {
                     _logger.LogInformation("Evento {EventId} ja foi processado previamente. Descartando com Ack para evitar duplicidade de saldo.", @event.EventId);
                     _channel.BasicAck(ea.DeliveryTag, multiple: false);
@@ -100,18 +104,18 @@ public class TransactionEventConsumer : BackgroundService
                 var date = DateOnly.FromDateTime(@event.CreatedAt);
 
                 // 2. Obter saldo existente ou inicializar consolidado novo
-                var consolidated = await _repository.GetAsync(@event.MerchantId, date, stoppingToken)
+                var consolidated = await repository.GetAsync(@event.MerchantId, date, stoppingToken)
                                    ?? new DailyConsolidated(@event.MerchantId, date);
 
                 // 3. Aplicar mutacao contabil no agregado de dominio
                 consolidated.ApplyTransaction(@event.Amount, @event.Type);
 
                 // 4. Gravar atomicamente no PostgreSQL e registrar evento na tabela de deduplicacao
-                await _repository.UpsertAsync(consolidated, stoppingToken);
-                await _repository.MarkEventProcessedAsync(@event.EventId, nameof(TransactionCreatedEvent), stoppingToken);
+                await repository.UpsertAsync(consolidated, stoppingToken);
+                await repository.MarkEventProcessedAsync(@event.EventId, nameof(TransactionCreatedEvent), stoppingToken);
 
                 // 5. Atualizar imediatamente o Redis (Write-Through)
-                await _cacheService.SetAsync(consolidated, cancellationToken: stoppingToken);
+                await cacheService.SetAsync(consolidated, cancellationToken: stoppingToken);
 
                 // 6. Confirmar o processamento bem-sucedido para o broker RabbitMQ
                 _channel.BasicAck(ea.DeliveryTag, multiple: false);
