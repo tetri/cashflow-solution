@@ -121,11 +121,22 @@ X-Idempotency-Key: e4d93f72-8854-4a7b-a3d1-9f20e4b86123
 
 *Nota sobre desempenho:* A propriedade `"cached": true` indica que a consulta foi servida em menos de 5 milissegundos a partir da memória RAM do Redis. Em caso de dias sem movimentação registrada, a API retorna `HTTP 200 OK` com saldos zerados (`closingBalance: 0.00`).
 
+### 3.4 Endpoints de Observabilidade e Diagnósticos Operacionais
+
+Ambas as APIs expõem rotas públicas de monitoramento (isentas de autenticação via `X-Api-Key`), viabilizando sondagens automatizadas por orquestradores de contêineres e coletores de métricas:
+
+| Endpoint | Método | Finalidade | Formato de Retorno |
+|---|---|---|---|
+| `/health/live` | `GET` | **Sonda de Vivacidade (Liveness):** Confirma que o runtime da aplicação está ativo e sem deadlocks. | JSON simples (`{ "status": "Saudavel", ... }`) |
+| `/health/ready` | `GET` | **Sonda de Prontidão (Readiness):** Testa ativamente as conexões com o PostgreSQL, Redis e RabbitMQ. | JSON detalhado com latência e status por componente |
+| `/health` | `GET` | **Status Geral:** Verificação abrangente de saúde operacional para ferramentas legadas. | JSON detalhado com latência e status por componente |
+| `/metrics` | `GET` | **Métricas Prometheus:** Exporta métricas HTTP e contadores de negócio no padrão OpenMetrics. | Texto canônico Prometheus para scraping |
+
 ---
 
-## 4. Tratamento de Erros e Padrão ProblemDetails (RFC 7231)
+## 4. Tratamento de Erros e Padrão ProblemDetails (RFC 7231 / RFC 7807)
 
-Todas as respostas de erro da plataforma seguem estritamente o padrão **RFC 7231 / RFC 7807 (ProblemDetails)**, com títulos e detalhes redigidos em português culto.
+Todas as respostas de erro da plataforma seguem estritamente o padrão **RFC 7807 (ProblemDetails)** e as recomendações **OWASP / CWE-209**, fornecendo códigos de erro estáveis no campo `errorCode` e carimbo de data/hora UTC no campo `timestamp`, sem vazamento de stack traces internos.
 
 ### Exemplo de Erro de Validação (HTTP 400 Bad Request):
 ```json
@@ -133,7 +144,9 @@ Todas as respostas de erro da plataforma seguem estritamente o padrão **RFC 723
   "type": "https://tools.ietf.org/html/rfc7231#section-6.5.1",
   "title": "Erro de validacao nos dados do lancamento",
   "status": 400,
-  "detail": "O valor do lancamento deve ser estritamente maior que zero."
+  "detail": "O valor do lancamento deve ser estritamente maior que zero.",
+  "errorCode": "CF_TX_003",
+  "timestamp": "2026-09-07T20:30:00.123Z"
 }
 ```
 
@@ -143,31 +156,54 @@ Todas as respostas de erro da plataforma seguem estritamente o padrão **RFC 723
   "type": "https://tools.ietf.org/html/rfc7231#section-6.5.8",
   "title": "Conflito de idempotencia na transacao",
   "status": 409,
-  "detail": "A chave de idempotencia informada ja foi utilizada previamente com valores ou parametros divergentes."
+  "detail": "A chave de idempotencia informada ja foi utilizada previamente com valores ou parametros divergentes.",
+  "errorCode": "CF_TX_006",
+  "timestamp": "2026-09-07T20:30:05.456Z"
+}
+```
+
+### Exemplo de Falha de Autenticação (HTTP 401 Unauthorized):
+```json
+{
+  "type": "https://tools.ietf.org/html/rfc7235#section-3.1",
+  "title": "Acesso nao autorizado",
+  "status": 401,
+  "detail": "Credenciais de autenticacao ausentes ou invalidas. Forneca o cabecalho 'X-Api-Key' ou 'Authorization: Bearer <token>' valido.",
+  "errorCode": "CF_AUTH_001",
+  "timestamp": "2026-09-07T20:30:10.789Z"
 }
 ```
 
 ---
 
-## 5. Coleção de Exemplos Práticos com cURL (Autenticação OWASP)
+## 5. Coleção de Exemplos Práticos com cURL
 
 ```bash
-# 1. Registrar um Credito de R$ 500,00
+# 1. Registrar um Credito de R$ 500,00 (Autenticado via X-Api-Key)
 curl -X POST http://localhost:5001/api/v1/transactions \
   -H "Content-Type: application/json" \
   -H "X-Api-Key: cashflow-secret-api-key-2026" \
   -H "X-Idempotency-Key: a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d" \
   -d '{"merchantId":"LOJA_CENTRO_01","amount":500.00,"type":"Credit","description":"Recebimento de vendas"}'
 
-# 2. Registrar um Debito de R$ 120,00
+# 2. Registrar um Debito de R$ 120,00 (Autenticado via Bearer Token)
 curl -X POST http://localhost:5001/api/v1/transactions \
   -H "Content-Type: application/json" \
-  -H "X-Api-Key: cashflow-secret-api-key-2026" \
+  -H "Authorization: Bearer cashflow-secret-api-key-2026" \
   -H "X-Idempotency-Key: f9e8d7c6-b5a4-3210-fedc-ba9876543210" \
   -d '{"merchantId":"LOJA_CENTRO_01","amount":120.00,"type":"Debit","description":"Pagamento de frete"}'
 
-# 3. Consultar o Consolidado do Dia
+# 3. Consultar o Consolidado do Dia (Resposta sub-5ms via Redis)
 curl -X GET http://localhost:5002/api/v1/consolidated/LOJA_CENTRO_01/2026-09-05 \
   -H "Accept: application/json" \
   -H "X-Api-Key: cashflow-secret-api-key-2026"
+
+# 4. Verificar a Sonda de Vivacidade (Liveness Probe - Sem autenticacao)
+curl -X GET http://localhost:5001/health/live
+
+# 5. Verificar a Sonda de Prontidão (Readiness Probe com status de banco e mensageria)
+curl -X GET http://localhost:5001/health/ready
+
+# 6. Coletar Metricas Operacionais para o Prometheus
+curl -X GET http://localhost:5001/metrics
 ```
