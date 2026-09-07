@@ -9,24 +9,32 @@
 
 using CashFlow.Consolidated.Infrastructure;
 using CashFlow.Consolidated.Worker.Consumers;
+using Prometheus;
 using RabbitMQ.Client;
 using StackExchange.Redis;
 
 var builder = Host.CreateApplicationBuilder(args);
 
 // -----------------------------------------------------------------------------------------
-// Configuracao de Telemetria e Logs
+// Configuracao de Observabilidade: Logs Estruturados em formato JSON nativo (NDJSON)
 // -----------------------------------------------------------------------------------------
-// Utilizamos apenas o provedor de console para simplicidade neste estagio.
-// Em producao, este bloco seria substituido por OpenTelemetry com exportacao para
-// Elasticsearch ou outro backend de observabilidade.
 builder.Logging.ClearProviders();
-builder.Logging.AddSimpleConsole(options =>
+builder.Logging.AddJsonConsole(options =>
 {
-    // Inclui o Scopes nos logs para correlacao de traceId em mensagens processadas
     options.IncludeScopes = true;
-    options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
+    options.TimestampFormat = "yyyy-MM-ddTHH:mm:ss.fffZ ";
+    options.JsonWriterOptions = new System.Text.Json.JsonWriterOptions
+    {
+        Indented = false
+    };
 });
+
+// -----------------------------------------------------------------------------------------
+// Servidor de Metricas Prometheus do Worker (porta 9091 por padrao)
+// -----------------------------------------------------------------------------------------
+var metricServerPort = int.TryParse(builder.Configuration["METRICS_PORT"], out var mp) ? mp : 9091;
+var metricServer = new MetricServer(port: metricServerPort);
+metricServer.Start();
 
 // -----------------------------------------------------------------------------------------
 // Registro da Infraestrutura do Consolidado (PostgreSQL e Redis)

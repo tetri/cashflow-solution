@@ -1,23 +1,45 @@
+using CashFlow.Consolidated.Api.Diagnostics;
 using CashFlow.Consolidated.Application;
 using CashFlow.Consolidated.Application.Common;
 using CashFlow.Consolidated.Application.Queries.GetDailyConsolidated;
 using CashFlow.Consolidated.Infrastructure;
 using CashFlow.Shared.Domain.Errors;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.OpenApi.Models;
+using Prometheus;
 using StackExchange.Redis;
 
 // Ponto de entrada da API de Consolidado Diario (Consolidated API - Read-Side)
 // Responsavel por servir consultas de saldo consolidado com latencia sub-5ms via Redis,
 // fallback transparente para PostgreSQL via Polly, documentacao Swagger em portugues culto
-// e conformidade rigorosa com diretrizes de seguranca OWASP API Security Top 10.
+// e conformidade rigorosa com diretrizes de seguranca OWASP e Observabilidade (Logs JSON, HealthChecks e Metricas Prometheus).
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configuracao de Observabilidade: Logs Estruturados em formato JSON nativo (NDJSON)
+builder.Logging.ClearProviders();
+builder.Logging.AddJsonConsole(options =>
+{
+    options.IncludeScopes = true;
+    options.TimestampFormat = "yyyy-MM-ddTHH:mm:ss.fffZ ";
+    options.JsonWriterOptions = new System.Text.Json.JsonWriterOptions
+    {
+        Indented = false
+    };
+});
 
 // Configuracao de seguranca da API lida de variaveis de ambiente ou configuracao (.env)
 var chaveApiKeyEsperada = builder.Configuration["Authentication:ApiKey"]
     ?? builder.Configuration["API_KEY"]
     ?? "cashflow-secret-api-key-2026";
+
+// Configuracao de Verificadores de Saude Operacional (Liveness e Readiness Probes)
+builder.Services.AddHealthChecks()
+    .AddCheck("Liveness", () => HealthCheckResult.Healthy("Servico em execucao ativa."), tags: HealthCheckResponseWriter.TagsVivacidade)
+    .AddCheck<PostgreSqlHealthCheck>("PostgreSQL", tags: HealthCheckResponseWriter.TagsProntidao)
+    .AddCheck<RedisHealthCheck>("Redis", tags: HealthCheckResponseWriter.TagsProntidao);
 
 // Configuracao de documentacao Swagger OpenAPI em portugues culto com esquemas de seguranca OWASP
 builder.Services.AddEndpointsApiExplorer();
@@ -124,9 +146,10 @@ app.Use(async (context, next) =>
 {
     var path = context.Request.Path.Value ?? string.Empty;
 
-    // Endpoints publicos liberados sem autenticacao: Health Check e documentacao Swagger
+    // Endpoints publicos liberados sem autenticacao: Health Checks, Metrics e documentacao Swagger
     if (path.StartsWith("/health", StringComparison.OrdinalIgnoreCase) ||
-        path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase))
+        path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase) ||
+        path.StartsWith("/metrics", StringComparison.OrdinalIgnoreCase))
     {
         await next();
         return;
@@ -171,6 +194,9 @@ app.Use(async (context, next) =>
     await next();
 });
 
+// Coleta automatica de metricas HTTP (duracao, status code, taxa de requisicoes)
+app.UseHttpMetrics();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -180,15 +206,44 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-// Endpoint de verificacao de saude operacional
-app.MapGet("/health", () => Results.Ok(new
+// 1. Sonda de vivacidade (Liveness Probe): verifica se o processo da aplicacao esta ativo
+app.MapHealthChecks("/health/live", new HealthCheckOptions
 {
-    status = "Saudavel",
-    servico = "CashFlow.Consolidated.Api",
-    horarioUtc = DateTime.UtcNow
-}))
+    Predicate = check => check.Tags.Contains("live"),
+    ResponseWriter = async (context, _) =>
+    {
+        context.Response.ContentType = "application/json; charset=utf-8";
+        await context.Response.WriteAsJsonAsync(new
+        {
+            status = "Saudavel",
+            servico = "CashFlow.Consolidated.Api",
+            tipo = "Liveness",
+            horarioUtc = DateTime.UtcNow
+        });
+    }
+})
+.WithName("VerificarVivacidade")
+.WithTags("Monitoramento");
+
+// 2. Sonda de prontidao (Readiness Probe): testa conectividade com PostgreSQL (leitor) e Redis
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = HealthCheckResponseWriter.WriteDetailedResponse
+})
+.WithName("VerificarProntidao")
+.WithTags("Monitoramento");
+
+// 3. Endpoint canonico de saude (compatibilidade ampla)
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = HealthCheckResponseWriter.WriteDetailedResponse
+})
 .WithName("VerificarSaude")
 .WithTags("Monitoramento");
+
+// 4. Endpoint de metricas Prometheus para scraping
+app.MapMetrics("/metrics");
 
 // Endpoint principal para obtencao do saldo consolidado diario por comerciante e data
 app.MapGet("/api/v1/consolidated/{merchantId}/{date}", async (
@@ -248,6 +303,17 @@ app.MapGet("/api/v1/consolidated/{merchantId}/{date}", async (
     // Execucao do manipulador de consulta CQRS com leitura otimizada em cache Redis e fallback relacional
     var query = new GetDailyConsolidatedQuery(merchantId.Trim(), dataContabil);
     var resultado = await handler.HandleAsync(query, cancellationToken);
+
+    // Metricas operacionais Prometheus: monitoramento de acerto de cache e vazao de consultas
+    ConsolidatedMetrics.ConsolidatedQueriesTotal.WithLabels(resultado.Cached.ToString().ToLowerInvariant()).Inc();
+    if (resultado.Cached)
+    {
+        ConsolidatedMetrics.CacheHitsTotal.Inc();
+    }
+    else
+    {
+        ConsolidatedMetrics.CacheMissesTotal.Inc();
+    }
 
     return Results.Ok(resultado);
 })

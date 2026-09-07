@@ -179,6 +179,16 @@ Polly é uma biblioteca de políticas de resiliência e tolerância a falhas par
 > *3. Sinergia com .NET 8 e Npgsql 8.x: O driver Npgsql 8.0.4 possui integração nativa e testada com o PostgreSQL 16 para tipos modernos do C# 12 (DateOnly nativo mapeado para a coluna 'date' sem problemas de fuso horário).*
 > *4. Imagem postgres:16-alpine: Reduz a superfície de ataque para ~100 MB (contra ~450 MB da imagem padrão), eliminando ferramentas e utilitários supérfluos do sistema operacional e reduzindo drasticamente vulnerabilidades conhecidas (CVEs)."*
 
+### Pergunta 12: "Como foi implementada a arquitetura de observabilidade (Logs, Health Checks e Métricas) na plataforma?"
+> **Resposta de Arquiteto:**
+> *"A observabilidade foi implementada seguindo o padrão Three Pillars of Observability de forma nativa e sem overhead desnecessário:*
+> *1. Logs Estruturados em JSON (NDJSON): Eliminamos concatenação de texto e ativamos o provedor nativo AddJsonConsole do .NET 8 com timestamp ISO 8601 UTC. Cada evento (transação criada, deduplicação, erro) exporta campos estruturados (TransactionId, MerchantId, Amount) diretamente no objeto 'State', permitindo extração e filtragem instantânea por ferramentas como FluentBit, Logstash e CloudWatch sem necessidade de regex.*
+> *2. Health Checks Segregados (Liveness vs Readiness): Implementamos sondas padronizadas via Microsoft.Extensions.Diagnostics.HealthChecks:*
+> *   - '/health/live': Liveness probe leve para orquestradores (Kubernetes/ECS) verificarem se o processo está vivo.*
+> *   - '/health/ready': Readiness probe que testa a conectividade ativa e latência com o banco PostgreSQL, cache Redis e broker RabbitMQ, retornando status JSON detalhado por componente.*
+> *   - Ambas as rotas são liberadas no middleware OWASP sem necessidade de autenticação.*
+> *3. Métricas Prometheus (/metrics): Integramos prometheus-net.AspNetCore com coleta automática de métricas HTTP (UseHttpMetrics) e métricas customizadas de negócio e resiliência (cashflow_transactions_created_total rotulado por tipo/status, volume financeiro acumulado, contadores de cache hit/miss do Redis e histogramas de latência de processamento do Worker)."*
+
 ---
 
 ## 4. Roteiro Prático para Demonstração ao Vivo

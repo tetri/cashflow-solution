@@ -112,8 +112,18 @@ Documentação detalhada de suporte:
    ```
 
 4. **Portas e Serviços Expostos:**
-   - **Transactions API:** `http://localhost:5001` (Swagger: `http://localhost:5001/swagger`)
-   - **Consolidated API:** `http://localhost:5002` (Swagger: `http://localhost:5002/swagger`)
+   - **Transactions API:** `http://localhost:5001`
+     - Documentação Swagger: `http://localhost:5001/swagger`
+     - Sonda de Vivacidade (Liveness): `http://localhost:5001/health/live`
+     - Sonda de Prontidão (Readiness): `http://localhost:5001/health/ready`
+     - Métricas Prometheus: `http://localhost:5001/metrics`
+   - **Consolidated API:** `http://localhost:5002`
+     - Documentação Swagger: `http://localhost:5002/swagger`
+     - Sonda de Vivacidade (Liveness): `http://localhost:5002/health/live`
+     - Sonda de Prontidão (Readiness): `http://localhost:5002/health/ready`
+     - Métricas Prometheus: `http://localhost:5002/metrics`
+   - **Consolidated Worker:**
+     - Servidor de Métricas Prometheus: `http://localhost:9091/metrics`
    - **RabbitMQ Management UI:** `http://localhost:15672` (Autenticação configurada via variáveis de ambiente `RABBITMQ_USER` e `RABBITMQ_PASSWORD` no arquivo `.env`)
    - **PostgreSQL 16:** `localhost:5432` (Base de Dados: `cashflow_db`, configurável via `.env`)
      - Administrador de Infraestrutura: `postgres`
@@ -125,7 +135,7 @@ Documentação detalhada de suporte:
 
 ## 4. Execução dos Testes Automatizados
 
-A solução contém 144 testes automatizados cobrindo testes unitários de domínio, testes de manipuladores CQRS, publicação de eventos com Polly e uma suíte completa de testes ponta a ponta (E2E Opaque-Box em 4 Tiers):
+A solução contém 148 testes automatizados cobrindo testes unitários de domínio, testes de manipuladores CQRS, publicação de eventos com Polly, suíte de observabilidade (Health/Metrics) e uma suíte completa de testes ponta a ponta (E2E Opaque-Box em 4 Tiers):
 
 ```bash
 # Executar toda a suite de testes da solucao

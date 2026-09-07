@@ -133,6 +133,47 @@ public class AmbienteTesteE2E : HttpMessageHandler
     {
         var caminho = request.RequestUri?.AbsolutePath ?? string.Empty;
 
+        // Endpoints publicos de observabilidade: Health Checks (Liveness/Readiness) e Metricas Prometheus
+        if (caminho.Equals("/health/live", StringComparison.OrdinalIgnoreCase))
+        {
+            return CriarRespostaJson(HttpStatusCode.OK, new
+            {
+                status = "Saudavel",
+                servico = "CashFlow.Api",
+                tipo = "Liveness",
+                horarioUtc = DateTime.UtcNow
+            });
+        }
+
+        if (caminho.Equals("/health/ready", StringComparison.OrdinalIgnoreCase) ||
+            caminho.Equals("/health", StringComparison.OrdinalIgnoreCase))
+        {
+            var statusGeral = _falhaRedisSimulada ? "Degradado" : "Saudavel";
+            return CriarRespostaJson(HttpStatusCode.OK, new
+            {
+                status = statusGeral,
+                servico = "CashFlow.Api",
+                horarioUtc = DateTime.UtcNow,
+                dependencias = new[]
+                {
+                    new { componente = "PostgreSQL", status = "Saudavel" },
+                    new { componente = "Cache/Broker", status = _falhaRedisSimulada ? "Indisponivel" : "Saudavel" }
+                }
+            });
+        }
+
+        if (caminho.Equals("/metrics", StringComparison.OrdinalIgnoreCase))
+        {
+            var conteudoMetricas = "# HELP cashflow_transactions_created_total Total de transacoes\n# TYPE cashflow_transactions_created_total counter\n";
+            var resposta = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(conteudoMetricas, Encoding.UTF8, "text/plain")
+            };
+            resposta.Headers.Add("X-Content-Type-Options", "nosniff");
+            resposta.Headers.Add("X-Frame-Options", "DENY");
+            return resposta;
+        }
+
         // Inspecao rigorosa de autenticacao conforme recomendacoes OWASP API1/API2
         if (!ValidarAutenticacao(request, out var respostaNaoAutorizada))
         {

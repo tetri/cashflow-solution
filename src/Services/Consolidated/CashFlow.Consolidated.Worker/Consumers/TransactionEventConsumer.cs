@@ -1,7 +1,9 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using CashFlow.Consolidated.Domain.Entities;
 using CashFlow.Consolidated.Domain.Interfaces;
+using CashFlow.Consolidated.Worker.Diagnostics;
 using CashFlow.Shared.Domain.Events;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
@@ -81,11 +83,13 @@ public class TransactionEventConsumer : BackgroundService
                 // Mensagem venonosa / payload corrompido: Nack sem requeue direciona para DLQ imediatamente
                 if (@event is null)
                 {
+                    WorkerMetrics.EventsProcessedTotal.WithLabels("Invalido", "dlq").Inc();
                     _logger.LogWarning("Mensagem com payload invalido ou corrompido recebida. Rejeitando para DLQ.");
                     _channel.BasicNack(ea.DeliveryTag, multiple: false, requeue: false);
                     return;
                 }
 
+                var cronometro = Stopwatch.StartNew();
                 _logger.LogInformation("Processando evento {EventId} para comerciante {MerchantId}...", @event.EventId, @event.MerchantId);
 
                 // Cria um escopo isolado de injecao de dependencias para processamento seguro da mensagem
@@ -96,6 +100,7 @@ public class TransactionEventConsumer : BackgroundService
                 // 1. Garantia de Idempotencia: Verifica se o identificador do evento ja foi computado
                 if (await repository.IsEventProcessedAsync(@event.EventId, stoppingToken))
                 {
+                    WorkerMetrics.EventsProcessedTotal.WithLabels(nameof(TransactionCreatedEvent), "duplicate").Inc();
                     _logger.LogInformation("Evento {EventId} ja foi processado previamente. Descartando com Ack para evitar duplicidade de saldo.", @event.EventId);
                     _channel.BasicAck(ea.DeliveryTag, multiple: false);
                     return;
@@ -117,12 +122,17 @@ public class TransactionEventConsumer : BackgroundService
                 // 5. Atualizar imediatamente o Redis (Write-Through)
                 await cacheService.SetAsync(consolidated, cancellationToken: stoppingToken);
 
-                // 6. Confirmar o processamento bem-sucedido para o broker RabbitMQ
+                // 6. Confirmar o processamento bem-sucedido para o broker RabbitMQ e registrar metricas
+                cronometro.Stop();
+                WorkerMetrics.EventProcessingDurationSeconds.Observe(cronometro.Elapsed.TotalSeconds);
+                WorkerMetrics.EventsProcessedTotal.WithLabels(nameof(TransactionCreatedEvent), "success").Inc();
+
                 _channel.BasicAck(ea.DeliveryTag, multiple: false);
                 _logger.LogInformation("Consolidado atualizado com sucesso para comerciante {MerchantId} na data {Date}.", @event.MerchantId, date);
             }
             catch (Exception ex)
             {
+                WorkerMetrics.EventsProcessedTotal.WithLabels(nameof(TransactionCreatedEvent), "dlq").Inc();
                 _logger.LogError(ex, "Falha no processamento da mensagem do RabbitMQ. Encaminhando para DLQ para auditoria...");
                 // Nao reenfileira na fila principal (requeue: false) para evitar loop infinito e saturacao de CPU
                 _channel.BasicNack(ea.DeliveryTag, multiple: false, requeue: false);

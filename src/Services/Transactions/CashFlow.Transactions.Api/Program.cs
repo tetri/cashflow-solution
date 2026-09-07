@@ -1,24 +1,46 @@
 using CashFlow.Shared.Domain.Errors;
+using CashFlow.Transactions.Api.Diagnostics;
 using CashFlow.Transactions.Api.Models;
 using CashFlow.Transactions.Application;
 using CashFlow.Transactions.Application.Commands.CreateTransaction;
 using CashFlow.Transactions.Application.Exceptions;
 using CashFlow.Transactions.Domain.Interfaces;
 using CashFlow.Transactions.Infrastructure;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.OpenApi.Models;
+using Prometheus;
 
 // Ponto de entrada da API de Lancamentos (Transactions API - Write-Side)
 // Responsavel por expor os endpoints HTTP REST para recepcao de debitos e creditos,
 // validacao de idempotencia via cabecalho ou corpo, persistencia e publicacao de eventos,
-// alem de aplicar conformidade rigorosa com padroes OWASP API Security (Headers, Autenticacao e ErrorCodes).
+// alem de aplicar conformidade rigorosa com padroes OWASP API Security e Observabilidade (Logs JSON, HealthChecks e Metricas Prometheus).
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configuracao de Observabilidade: Logs Estruturados em formato JSON nativo (NDJSON)
+builder.Logging.ClearProviders();
+builder.Logging.AddJsonConsole(options =>
+{
+    options.IncludeScopes = true;
+    options.TimestampFormat = "yyyy-MM-ddTHH:mm:ss.fffZ ";
+    options.JsonWriterOptions = new System.Text.Json.JsonWriterOptions
+    {
+        Indented = false
+    };
+});
 
 // Configuracao de seguranca da API lida de variaveis de ambiente ou configuracao (.env)
 var chaveApiKeyEsperada = builder.Configuration["Authentication:ApiKey"]
     ?? builder.Configuration["API_KEY"]
     ?? "cashflow-secret-api-key-2026";
+
+// Configuracao de Verificadores de Saude Operacional (Liveness e Readiness Probes)
+builder.Services.AddHealthChecks()
+    .AddCheck("Liveness", () => HealthCheckResult.Healthy("Servico em execucao ativa."), tags: HealthCheckResponseWriter.TagsVivacidade)
+    .AddCheck<PostgreSqlHealthCheck>("PostgreSQL", tags: HealthCheckResponseWriter.TagsProntidao)
+    .AddCheck<RabbitMqHealthCheck>("RabbitMQ", tags: HealthCheckResponseWriter.TagsProntidao);
 
 // Configuracao de documentacao Swagger/OpenAPI em portugues culto com esquemas de autenticacao OWASP
 builder.Services.AddEndpointsApiExplorer();
@@ -113,9 +135,10 @@ app.Use(async (context, next) =>
 {
     var path = context.Request.Path.Value ?? string.Empty;
 
-    // Endpoints publicos liberados sem autenticacao: Health Check e documentacao Swagger
+    // Endpoints publicos liberados sem autenticacao: Health Checks, Metrics e documentacao Swagger
     if (path.StartsWith("/health", StringComparison.OrdinalIgnoreCase) ||
-        path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase))
+        path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase) ||
+        path.StartsWith("/metrics", StringComparison.OrdinalIgnoreCase))
     {
         await next();
         return;
@@ -160,6 +183,9 @@ app.Use(async (context, next) =>
     await next();
 });
 
+// Coleta automatica de metricas HTTP (duracao, status code, taxa de requisicoes)
+app.UseHttpMetrics();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -169,15 +195,44 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-// Endpoint de verificacao de saude operacional do servico
-app.MapGet("/health", () => Results.Ok(new
+// 1. Sonda de vivacidade (Liveness Probe): verifica se o processo da aplicacao esta ativo
+app.MapHealthChecks("/health/live", new HealthCheckOptions
 {
-    status = "Saudavel",
-    servico = "CashFlow.Transactions.Api",
-    horarioUtc = DateTime.UtcNow
-}))
+    Predicate = check => check.Tags.Contains("live"),
+    ResponseWriter = async (context, _) =>
+    {
+        context.Response.ContentType = "application/json; charset=utf-8";
+        await context.Response.WriteAsJsonAsync(new
+        {
+            status = "Saudavel",
+            servico = "CashFlow.Transactions.Api",
+            tipo = "Liveness",
+            horarioUtc = DateTime.UtcNow
+        });
+    }
+})
+.WithName("VerificarVivacidade")
+.WithTags("Monitoramento");
+
+// 2. Sonda de prontidao (Readiness Probe): testa conectividade com PostgreSQL e RabbitMQ
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = HealthCheckResponseWriter.WriteDetailedResponse
+})
+.WithName("VerificarProntidao")
+.WithTags("Monitoramento");
+
+// 3. Endpoint canonico de saude (compatibilidade ampla)
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = HealthCheckResponseWriter.WriteDetailedResponse
+})
 .WithName("VerificarSaude")
 .WithTags("Monitoramento");
+
+// 4. Endpoint de metricas Prometheus para coleta e scraping operacional
+app.MapMetrics("/metrics");
 
 // Endpoint de consulta de transacao por identificador unico universal
 app.MapGet("/api/v1/transactions/{id:guid}", async (
@@ -259,14 +314,21 @@ app.MapPost("/api/v1/transactions", async (
         // Se a transacao for reconhecida como duplicata idempotente integra, retorna 200 OK
         if (resultado.IsIdempotentDuplicate)
         {
+            TransactionsMetrics.TransactionsCreatedTotal.WithLabels(resultado.Type, "duplicate").Inc();
             return Results.Ok(resposta);
         }
+
+        // Metricas Prometheus: incremento de quantidade e volume financeiro processado
+        TransactionsMetrics.TransactionsCreatedTotal.WithLabels(resultado.Type, "success").Inc();
+        TransactionsMetrics.TransactionAmountTotal.WithLabels(resultado.Type).Inc((double)resultado.Amount);
 
         // Se for uma nova transacao registrada com sucesso, retorna 201 Created com cabecalho Location
         return Results.Created($"/api/v1/transactions/{resultado.TransactionId}", resposta);
     }
     catch (ArgumentException ex)
     {
+        TransactionsMetrics.TransactionsCreatedTotal.WithLabels(requisicao.Type ?? "Desconhecido", "error").Inc();
+
         // Violacao de regras de validacao ou deteccao de emojis: HTTP 400 Bad Request RFC 7231 / RFC 7807
         var codigoErro = ex.Message switch
         {
@@ -291,6 +353,8 @@ app.MapPost("/api/v1/transactions", async (
     }
     catch (IdempotencyConflictException ex)
     {
+        TransactionsMetrics.TransactionsCreatedTotal.WithLabels(requisicao.Type ?? "Desconhecido", "conflict").Inc();
+
         // Conflito de negocio por reutilizacao de chave com dados divergentes: HTTP 409 Conflict RFC 7231 / RFC 7807
         var problemDetails = new ProblemDetails
         {

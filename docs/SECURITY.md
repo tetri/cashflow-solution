@@ -24,7 +24,7 @@ Aplicamos o modelo STRIDE (Spoofing, Tampering, Repudiation, Information Disclos
 ### 2.1 Autenticação e Autorização de APIs (OWASP API1 & API2)
 - **Cabeçalho Seguro:** Endpoints operacionais (`/api/v1/transactions` e `/api/v1/consolidated`) exigem credencial válida via `X-Api-Key` ou `Authorization: Bearer <token>`.
 - **Parametrização Segura:** A chave esperada é lida das variáveis de ambiente (`API_KEY` ou `Authentication__ApiKey`), com modelo disponibilizado em `.env.example`.
-- **Isolamento de Endpoints Públicos:** Apenas as rotas de monitoramento (`/health`) e documentação (`/swagger`) são públicas.
+- **Isolamento de Endpoints Públicos:** Apenas as rotas de observabilidade (`/health`, `/health/live`, `/health/ready`, `/metrics`) e documentação interativa (`/swagger`) são públicas, viabilizando sondagens operacionais por orquestradores (Kubernetes/ECS) e scraping de métricas pelo Prometheus sem expor dados sensíveis ou permitir mutações de negócio.
 
 ### 2.2 Cabeçalhos de Segurança HTTP (OWASP Secure Headers)
 Ambas as APIs injetam cabeçalhos defensivos nativamente em todas as respostas HTTP:
