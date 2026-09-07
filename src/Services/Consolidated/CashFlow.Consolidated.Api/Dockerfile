@@ -6,6 +6,7 @@ WORKDIR /app
 COPY CashFlow.sln Directory.Build.props .editorconfig ./
 
 # Copia arquivos de projeto para otimizacao de cache de camadas do Docker
+COPY src/Shared/CashFlow.Shared.Domain/CashFlow.Shared.Domain.csproj src/Shared/CashFlow.Shared.Domain/
 COPY src/Services/Consolidated/CashFlow.Consolidated.Domain/CashFlow.Consolidated.Domain.csproj src/Services/Consolidated/CashFlow.Consolidated.Domain/
 COPY src/Services/Consolidated/CashFlow.Consolidated.Application/CashFlow.Consolidated.Application.csproj src/Services/Consolidated/CashFlow.Consolidated.Application/
 COPY src/Services/Consolidated/CashFlow.Consolidated.Infrastructure/CashFlow.Consolidated.Infrastructure.csproj src/Services/Consolidated/CashFlow.Consolidated.Infrastructure/
@@ -15,6 +16,7 @@ COPY src/Services/Consolidated/CashFlow.Consolidated.Api/CashFlow.Consolidated.A
 RUN dotnet restore src/Services/Consolidated/CashFlow.Consolidated.Api/CashFlow.Consolidated.Api.csproj
 
 # Copia todo o codigo-fonte relevante
+COPY src/Shared/CashFlow.Shared.Domain/ src/Shared/CashFlow.Shared.Domain/
 COPY src/Services/Consolidated/ src/Services/Consolidated/
 
 # Compila e publica a aplicacao em modo Release
