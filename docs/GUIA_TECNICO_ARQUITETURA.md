@@ -154,6 +154,23 @@ Polly é uma biblioteca de políticas de resiliência e tolerância a falhas par
 > *5. Swashbuckle.AspNetCore (v6.6.2): geração de contratos OpenAPI/Swagger interativos em português culto.*
 > *6. xUnit + NSubstitute + FluentAssertions + Coverlet: framework de testes paralelos com asserções legíveis, mocks sem acoplamento e métricas de cobertura para a esteira de CI."*
 
+### Pergunta 9: "Como o Princípio do Menor Privilégio (Least Privilege) e a segurança de dados foram aplicados no banco relacional?"
+> **Resposta de Arquiteto:**
+> *"A segregação do padrão CQRS foi estendida até a infraestrutura do SGBD PostgreSQL através de papéis (roles) dedicados. Não utilizamos o usuário administrativo compartilhado 'postgres' nas conexões das aplicações:*
+> *1. O Write-Side (API de Lançamentos e Worker) conecta-se via 'cashflow_writer', com permissões concedidas apenas de SELECT, INSERT e UPDATE nas tabelas operacionais.*
+> *2. O Read-Side (API de Consolidado Diário) conecta-se via 'cashflow_reader', cujo acesso é estritamente limitado a SELECT na tabela 'daily_consolidated'. Todas as permissões de escrita são revogadas, e o usuário sequer enxerga a tabela de transações brutas ou eventos.*
+> *Isso garante Defesa em Profundidade: mesmo se ocorresse uma vulnerabilidade hipotética de injeção na API de leitura, nenhum invasor conseguiria extrair transações individuais de lojistas ou adulterar saldos no banco de dados."*
+
+### Pergunta 10: "Qual foi o papel do uso de inteligência artificial generativa versus a governança arquitetural humana no projeto?"
+> **Resposta de Arquiteto:**
+> *"O projeto foi construído sob uma abordagem de Engenharia Aumentada por IA. Agentes autônomos aceleraram a geração do scaffolding de código, estruturas de DTOs, entidades de domínio e as dezenas de cenários de testes automatizados.*
+> *No entanto, a IA tende a gerar soluções focadas exclusivamente em requisitos funcionais imediatos, negligenciando requisitos não-funcionais profundos de segurança corporativa. Foi a governança técnica humana sênior que auditou o projeto, identificou essas lacunas críticas e determinou o endurecimento da solução:*
+> *1. Implementação de autenticação obrigatória de APIs (OWASP API1/API2).*
+> *2. Padronização estrita de códigos de erro canônicos RFC 7807/OWASP, eliminando vazamento de mensagens internas de exceção.*
+> *3. Configuração de cabeçalhos de segurança HTTP restritivos (Content Security Policy).*
+> *4. Segregação de credenciais e roles com Least Privilege no PostgreSQL (cashflow_writer vs cashflow_reader).*
+> *Essa dinâmica comprova que a IA potencializa a velocidade da engenharia, mas a liderança de arquitetura, a antecipação de riscos e a responsabilidade de conformidade permanecem prerrogativas do profissional humano sênior."*
+
 ---
 
 ## 4. Roteiro Prático para Demonstração ao Vivo

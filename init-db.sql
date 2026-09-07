@@ -1,5 +1,9 @@
--- Esquema de Banco de Dados Relacional - CashFlow (PostgreSQL)
+-- =========================================================================
+-- Esquema de Banco de Dados Relacional - CashFlow (PostgreSQL 16)
+-- Governanca de Seguranca: Principio do Menor Privilegio (Least Privilege / OWASP)
+-- =========================================================================
 
+-- 1. Tabelas do Dominio Financeiro
 CREATE TABLE IF NOT EXISTS transactions (
     id UUID PRIMARY KEY,
     merchant_id VARCHAR(50) NOT NULL,
@@ -31,3 +35,40 @@ CREATE TABLE IF NOT EXISTS processed_events (
     event_type VARCHAR(100) NOT NULL,
     processed_at TIMESTAMP WITH TIME ZONE NOT NULL
 );
+
+-- =========================================================================
+-- 2. Segregação de Privilégios (Write-Side vs Read-Side)
+-- =========================================================================
+
+-- Criacao do usuario de Escrita (Write-Side: Transactions API e Consolidated Worker)
+-- Permissoes restritas: conexao, leitura, insercao e atualizacao nas tabelas operacionais
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'cashflow_writer') THEN
+        CREATE USER cashflow_writer WITH PASSWORD 'writer_secret_pass_local';
+    END IF;
+END
+$$;
+
+GRANT CONNECT ON DATABASE cashflow_db TO cashflow_writer;
+GRANT USAGE ON SCHEMA public TO cashflow_writer;
+GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO cashflow_writer;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE ON TABLES TO cashflow_writer;
+
+-- Criacao do usuario de Leitura Estrita (Read-Side: Consolidated API)
+-- Permissoes maximamente restritas: conexao e SELECT exclusivamente na tabela daily_consolidated
+-- Nenhuma permissao de INSERT, UPDATE, DELETE ou acesso a tabelas sensiveis de transacao
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'cashflow_reader') THEN
+        CREATE USER cashflow_reader WITH PASSWORD 'reader_secret_pass_local';
+    END IF;
+END
+$$;
+
+GRANT CONNECT ON DATABASE cashflow_db TO cashflow_reader;
+GRANT USAGE ON SCHEMA public TO cashflow_reader;
+GRANT SELECT ON TABLE daily_consolidated TO cashflow_reader;
+REVOKE ALL ON TABLE transactions FROM cashflow_reader;
+REVOKE ALL ON TABLE processed_events FROM cashflow_reader;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO cashflow_reader;

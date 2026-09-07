@@ -66,3 +66,36 @@ Em conformidade com a RFC 7807 e as recomendações do OWASP para respostas segu
 - Imagens Docker multi-stage baseadas em Alpine Linux minimizado, reduzindo expressivamente a superfície de ataque e vulnerabilidades de pacotes (CVEs).
 - Execução expressa sob usuário sem privilégios de superusuário (`USER appuser`).
 - Credenciais parametrizadas via variáveis de ambiente (`.env` e `.env.example`), sem valores sensíveis comitados no repositório.
+
+### 2.7 Segregação de Privilégios no Banco de Dados (Princípio do Menor Privilégio - PoLP)
+A separação arquitetural CQRS (Command Query Responsibility Segregation) reflete-se diretamente na camada de persistência através de papéis (roles) dedicados no PostgreSQL, eliminando o risco de um único usuário administrativo compartilhado:
+
+- **Usuário de Escrita (`cashflow_writer`):**
+  - Utilizado pelos serviços `transactions-api` e `consolidated-worker`.
+  - Permissões concedidas: `SELECT, INSERT, UPDATE` exclusivamente sobre as tabelas operacionais (`transactions`, `daily_consolidated`, `processed_events`).
+  - Sem privilégios de superusuário (`SUPERUSER`), criação de bancos (`CREATEDB`) ou alteração de esquemas (DDL).
+- **Usuário de Leitura (`cashflow_reader`):**
+  - Utilizado exclusivamente pelo serviço `consolidated-api`.
+  - Permissões concedidas: estritamente `SELECT` na tabela `daily_consolidated`.
+  - Revogações explícitas: qualquer operação de escrita (`INSERT, UPDATE, DELETE, TRUNCATE`) é sumariamente bloqueada pelo SGBD.
+  - Bloqueio de tabelas sensíveis: o usuário de leitura não possui permissão para consultar a tabela de transações brutas (`transactions`) nem o log de eventos (`processed_events`).
+- **Defesa em Profundidade contra SQL Injection e Vazamento:**
+  Mesmo na remota hipótese de uma falha ou injeção de consulta no endpoint de leitura, um invasor jamais conseguirá extrair dados de transações individuais ou adulterar saldos consolidados, pois o PostgreSQL bloqueia a operação em nível de permissão de catálogo (`permission denied for table transactions`).
+- **Parametrização Segura:**
+  Todos os usuários e senhas (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `DB_WRITER_USER`, `DB_WRITER_PASSWORD`, `DB_READER_USER`, `DB_READER_PASSWORD`) são gerenciados via arquivo `.env`, desacoplados do repositório de código e provisionados deterministicamente no script `init-db.sql`.
+
+---
+
+## 3. Engenharia Aumentada por IA com Governança Crítica Humana
+
+A construção da plataforma CashFlow combinou aceleração de produtividade com inteligência artificial e rigorosa governança arquitetural humana:
+
+1. **Aceleração via Agentes Autônomos:**
+   O scaffolding estrutural, contratos de dados, implementação de padrões (Clean Architecture, CQRS, Repository) e suítes de testes unitários e de integração foram gerados e iterados com auxílio de agentes de IA.
+2. **O Papel Crítico da Governança Arquitetural Sênior:**
+   Modelos de linguagem e agentes generativos tendem a entregar soluções funcionalmente corretas, mas que com frequência omitem requisitos não-funcionais profundos de segurança corporativa e conformidade financeira:
+   - **Vulnerabilidades Omitidas por Padrão pela IA:** APIs sem autenticação nativa, respostas de erro vazando mensagens de exceção em texto livre em vez de códigos de erro canônicos RFC 7807/OWASP, cabeçalhos de segurança permissivos ou faltantes (CSP, HSTS) e uso simplista do usuário `postgres` com permissões totais para todas as aplicações.
+   - **Intervenção Humana Especializada:** A análise crítica do arquiteto identificou tais lacunas de segurança operacional, exigindo o endurecimento da infraestrutura: inclusão do middleware de autenticação (`X-Api-Key`), implementação de códigos estáveis (`CashFlowErrorCodes`), proteção rigorosa contra injeção e XSS, e segregação completa de usuários de banco de dados (`cashflow_writer` vs `cashflow_reader`) guiada pelo Princípio do Menor Privilégio.
+3. **Lição de Engenharia para Defesa Técnica:**
+   Ferramentas de IA são aceleradores de produtividade de alto impacto, mas a responsabilidade sobre segurança, integridade transacional, desenho de defesa em profundidade e conformidade regulatória permanece integralmente como competência do engenheiro/arquiteto humano sênior.
+

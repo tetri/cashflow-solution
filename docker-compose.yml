@@ -3,9 +3,9 @@ services:
     image: postgres:16-alpine
     container_name: cashflow-postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgrespassword
-      POSTGRES_DB: cashflow_db
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgrespassword}
+      POSTGRES_DB: ${POSTGRES_DB:-cashflow_db}
     ports:
       - "5432:5432"
     volumes:
@@ -61,7 +61,7 @@ services:
     container_name: cashflow-transactions-api
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__Database=Host=postgres;Port=5432;Database=cashflow_db;Username=postgres;Password=postgrespassword
+      - ConnectionStrings__Database=Host=postgres;Port=5432;Database=${POSTGRES_DB:-cashflow_db};Username=${DB_WRITER_USER:-cashflow_writer};Password=${DB_WRITER_PASSWORD:-writer_secret_pass_local}
       - RabbitMQ__HostName=rabbitmq
       - RabbitMQ__Port=5672
       - RabbitMQ__UserName=${RABBITMQ_USER:-admin}
@@ -84,7 +84,7 @@ services:
     container_name: cashflow-consolidated-api
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__Database=Host=postgres;Port=5432;Database=cashflow_db;Username=postgres;Password=postgrespassword
+      - ConnectionStrings__Database=Host=postgres;Port=5432;Database=${POSTGRES_DB:-cashflow_db};Username=${DB_READER_USER:-cashflow_reader};Password=${DB_READER_PASSWORD:-reader_secret_pass_local}
       - ConnectionStrings__Redis=redis:6379,abortConnect=false
       - Authentication__ApiKey=${API_KEY:-cashflow-secret-api-key-2026}
     ports:
@@ -104,7 +104,7 @@ services:
     container_name: cashflow-consolidated-worker
     environment:
       - DOTNET_ENVIRONMENT=Development
-      - ConnectionStrings__Database=Host=postgres;Port=5432;Database=cashflow_db;Username=postgres;Password=postgrespassword
+      - ConnectionStrings__Database=Host=postgres;Port=5432;Database=${POSTGRES_DB:-cashflow_db};Username=${DB_WRITER_USER:-cashflow_writer};Password=${DB_WRITER_PASSWORD:-writer_secret_pass_local}
       - ConnectionStrings__Redis=redis:6379,abortConnect=false
       - RabbitMQ__HostName=rabbitmq
       - RabbitMQ__Port=5672

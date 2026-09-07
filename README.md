@@ -114,14 +114,17 @@ Documentação detalhada de suporte:
    - **Transactions API:** `http://localhost:5001` (Swagger: `http://localhost:5001/swagger`)
    - **Consolidated API:** `http://localhost:5002` (Swagger: `http://localhost:5002/swagger`)
    - **RabbitMQ Management UI:** `http://localhost:15672` (Autenticação configurada via variáveis de ambiente `RABBITMQ_USER` e `RABBITMQ_PASSWORD` no arquivo `.env`)
-   - **PostgreSQL 16:** `localhost:5432` (Base de Dados: `cashflow_db`, Usuário: `postgres`, Senha: `postgrespassword`)
+   - **PostgreSQL 16:** `localhost:5432` (Base de Dados: `cashflow_db`, configurável via `.env`)
+     - Administrador de Infraestrutura: `postgres`
+     - Write-Side (`transactions-api`, `consolidated-worker`): `cashflow_writer` (permissões limitadas a escrita/leitura nas tabelas operacionais)
+     - Read-Side (`consolidated-api`): `cashflow_reader` (permissão estrita de `SELECT` apenas na tabela `daily_consolidated`, conforme PoLP)
    - **Redis 7:** `localhost:6379`
 
 ---
 
 ## 4. Execução dos Testes Automatizados
 
-A solução contém 140 testes automatizados cobrindo testes unitários de domínio, testes de manipuladores CQRS, publicação de eventos com Polly e uma suíte completa de testes ponta a ponta (E2E Opaque-Box em 4 Tiers):
+A solução contém 144 testes automatizados cobrindo testes unitários de domínio, testes de manipuladores CQRS, publicação de eventos com Polly e uma suíte completa de testes ponta a ponta (E2E Opaque-Box em 4 Tiers):
 
 ```bash
 # Executar toda a suite de testes da solucao
