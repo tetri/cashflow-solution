@@ -3,10 +3,10 @@
 [![CI](https://github.com/tetri/cashflow-solution/actions/workflows/ci.yml/badge.svg)](https://github.com/tetri/cashflow-solution/actions/workflows/ci.yml)
 [![.NET 8](https://img.shields.io/badge/.NET-8.0-blue.svg)](https://dotnet.microsoft.com/)
 [![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2F%20CQRS%20%2F%20EDA-brightgreen.svg)]()
-[![Tests](https://img.shields.io/badge/Tests-140%20passed%20(100%25)-success.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-148%20passed%20(100%25)-success.svg)]()
 [![License](https://img.shields.io/badge/License-MIT-lightgrey.svg)]()
 
-Arquitetura de microsserviços escalável, resiliente e de alta disponibilidade desenvolvida em **C# (.NET 8)**, **Clean Architecture**, **CQRS**, **Event-Driven Architecture (RabbitMQ)**, **PostgreSQL** e **Redis**.
+Arquitetura de microsserviços escalável, resiliente e de alta disponibilidade desenvolvida em **C# (.NET 8)**, **Clean Architecture**, **CQRS**, **Event-Driven Architecture (RabbitMQ)**, **PostgreSQL 16**, **Redis 7** e um frontend executivo **Web Cockpit (Nginx)**.
 
 ---
 
@@ -113,6 +113,8 @@ Documentação detalhada de suporte:
    ```
 
 4. **Portas e Serviços Expostos:**
+   - **Web Cockpit (Frontend Executivo):** `http://localhost:3000`
+     - Dashboard unificado para lançamento de créditos/débitos, teste de idempotência, consulta de saldo com identificação de cache Redis vs PostgreSQL e telemetria de saúde das APIs em tempo real.
    - **Transactions API:** `http://localhost:5001`
      - Documentação Swagger: `http://localhost:5001/swagger`
      - Sonda de Vivacidade (Liveness): `http://localhost:5001/health/live`

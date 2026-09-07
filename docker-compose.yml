@@ -120,6 +120,19 @@ services:
     networks:
       - cashflow-network
 
+  web:
+    build:
+      context: ./src/Web/CashFlow.Web
+      dockerfile: Dockerfile
+    container_name: cashflow-web
+    ports:
+      - "3000:80"
+    depends_on:
+      - transactions-api
+      - consolidated-api
+    networks:
+      - cashflow-network
+
 networks:
   cashflow-network:
     driver: bridge

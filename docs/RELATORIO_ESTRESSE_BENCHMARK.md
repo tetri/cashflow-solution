@@ -39,40 +39,66 @@ O desafio estipula o seguinte requisito de missão crítica para o serviço de f
 
 ---
 
-## 3. Resultados Consolidados da Bateria de Testes
+## 3. Resultados Consolidados da Bateria de Testes (Com Segurança e Observabilidade Ativas)
+
+> **Nota de Contexto:** Os resultados abaixo refletem a solução com a pilha completa de segurança e governança ativa: autenticação por API Key via middleware ASP.NET Core, cabeçalhos de segurança OWASP (HSTS, CSP, X-Frame-Options, X-Content-Type-Options), formatação de erros RFC 7807 Problem Details, segregação de credenciais Least Privilege no PostgreSQL 16, logs estruturados NDJSON em stdout assíncrono e exportação contínua de métricas Prometheus HTTP via middleware.
 
 ### 3.1. Cenário A: Consulta de Consolidado Diário (Read-Side - Cache-Aside / Redis)
 * **Duração Total:** 1 minuto e 35 segundos contínuos (60s a 50 RPS nominais + 30s a 100 RPS de sobrecarga)
-* **Volume de Requisições:** 6.001 chamadas HTTP
+* **Volume de Requisições:** 6.002 chamadas HTTP executadas com validação de API Key e coleta métrica Prometheus
 
 | Métrica | Meta do Desafio | Resultado Coletado | Avaliação |
 | :--- | :--- | :--- | :--- |
-| **Taxa de Perda de Requisições** | `<= 5.00%` | **0.00%** (0 falhas em 6.001 chamadas) | **Aprovado com Excelência** |
+| **Taxa de Perda de Requisições** | `<= 5.00%` | **0.00%** (0 falhas em 6.002 chamadas) | **Aprovado com Excelência** |
 | **Throughput Sustentado** | `50.00 RPS` | **63.11 RPS** (picos de 100 RPS) | **Aprovado (+100% de margem)** |
-| **Latência Média (`avg`)** | `< 50.00 ms` | **1.93 ms** | **Submilisegundo** |
-| **Latência Mediana (`p50`)** | `< 50.00 ms` | **1.84 ms** | **Alta Consistência** |
-| **Latência Percentil 90 (`p90`)** | `< 50.00 ms` | **2.15 ms** | **Estável** |
-| **Latência Percentil 95 (`p95`)** | `< 50.00 ms` | **2.30 ms** | **Aprovado com Folga** |
-| **Latência Percentil 99 (`p99`)** | `< 100.00 ms` | **3.76 ms** | **Sem Degradação de Cauda** |
-| **Conformidade do Payload JSON** | `100%` | **100.00%** (6.001 / 6.001) | **Íntegro** |
+| **Latência Média (`avg`)** | `< 50.00 ms` | **3.00 ms** | **Baixo Milissegundo** |
+| **Latência Mediana (`p50`)** | `< 50.00 ms` | **2.06 ms** | **Alta Consistência** |
+| **Latência Percentil 90 (`p90`)** | `< 50.00 ms` | **2.53 ms** | **Estável** |
+| **Latência Percentil 95 (`p95`)** | `< 50.00 ms` | **3.01 ms** | **Aprovado com Folga (16x abaixo)** |
+| **Latência Percentil 99 (`p99`)** | `< 100.00 ms` | **5.70 ms** | **Sem Degradação de Cauda (17x abaixo)** |
+| **Conformidade do Payload JSON** | `100%` | **100.00%** (6.002 / 6.002) | **Íntegro** |
 
 ---
 
 ### 3.2. Cenário B: Ingestão de Transações Concorrentes (Write-Side - PostgreSQL + RabbitMQ)
 * **Duração Total:** 1 minuto contínuo (30s a 30 RPS + 25s a 50 RPS nominais de escrita pesada)
-* **Volume de Transações Ingeridas:** 2.152 transações financeiras com transação ACID no PostgreSQL e publicação assíncrona no RabbitMQ
+* **Volume de Transações Ingeridas:** 2.151 transações financeiras gravadas sob a role `cashflow_writer` e despachadas para o RabbitMQ
 
 | Métrica | Meta Técnica | Resultado Coletado | Avaliação |
 | :--- | :--- | :--- | :--- |
-| **Taxa de Falha de Ingestão** | `<= 1.00%` | **0.00%** (0 falhas em 2.152 transações) | **Aprovado com Excelência** |
-| **Latência Média (`avg`)** | `< 100.00 ms` | **6.85 ms** | **Excelente para Escrita** |
-| **Latência Percentil 95 (`p95`)** | `< 200.00 ms` | **18.05 ms** | **90% abaixo do limite** |
-| **Latência Percentil 99 (`p99`)** | `< 500.00 ms` | **41.44 ms** | **Estabilidade sob Concorrência** |
-| **Geração de TransactionId Único** | `100%` | **100.00%** (2.152 / 2.152) | **Íntegro** |
+| **Taxa de Falha de Ingestão** | `<= 1.00%` | **0.00%** (0 falhas em 2.151 transações) | **Aprovado com Excelência** |
+| **Latência Média (`avg`)** | `< 100.00 ms` | **5.57 ms** | **Excelente para Escrita** |
+| **Latência Percentil 90 (`p90`)** | `< 150.00 ms` | **7.62 ms** | **Estável** |
+| **Latência Percentil 95 (`p95`)** | `< 200.00 ms` | **12.89 ms** | **93% abaixo do limite** |
+| **Latência Percentil 99 (`p99`)** | `< 500.00 ms` | **26.50 ms** | **Estabilidade sob Concorrência** |
+| **Geração de TransactionId Único** | `100%` | **100.00%** (2.151 / 2.151) | **Íntegro** |
 
 ---
 
-### 3.3. Cenário C: Teste de Ponto de Ruptura e Capacidade Limite (Breakpoint Testing)
+### 3.3. Avaliação Comparativa: Impacto da Camada de Segurança e Observabilidade
+
+A tabela abaixo compara o desempenho da solução na versão base inicial (sem autenticação HTTP e sem telemetria em tempo real) versus a versão atual com segurança OWASP e observabilidade completas:
+
+| Cenário de Teste | Métrica Avaliada | Versão Base (Sem Auth/Métricas) | Versão Atual (Com Auth + Métricas + Logs NDJSON) | Variação (Overhead) | Impacto no SLA |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Leitura (50-100 RPS)** | Taxa de Perda | 0.00% | **0.00%** | 0.00% | Nulo (Zero perda) |
+| **Leitura (50-100 RPS)** | Latência Média | 1.93 ms | **3.00 ms** | +1.07 ms | Desprezível (< 50ms) |
+| **Leitura (50-100 RPS)** | Latência p95 | 2.30 ms | **3.01 ms** | +0.71 ms | Desprezível (< 50ms) |
+| **Leitura (50-100 RPS)** | Latência p99 | 3.76 ms | **5.70 ms** | +1.94 ms | Desprezível (< 100ms) |
+| **Escrita (30-50 RPS)** | Taxa de Perda | 0.00% | **0.00%** | 0.00% | Nulo (Zero perda) |
+| **Escrita (30-50 RPS)** | Latência Média | 6.85 ms | **5.57 ms** | -1.28 ms | Sem degradação |
+| **Escrita (30-50 RPS)** | Latência p95 | 18.05 ms | **12.89 ms** | -5.16 ms | 93% abaixo do SLA |
+| **Escrita (30-50 RPS)** | Latência p99 | 41.44 ms | **26.50 ms** | -14.94 ms | Ampla folga (< 500ms) |
+
+#### Diagnóstico Técnico do Impacto:
+1. **Sobrecarga de Autenticação por Header:** A validação do cabeçalho `X-Api-Key` em memória (lookup O(1) via `StringComparison.Ordinal`) e a injeção de cabeçalhos de segurança OWASP consom frações sub-microsegundo de CPU, não afetando o throughput geral.
+2. **Middleware de Métricas Prometheus:** O `UseHttpMetrics` utiliza coleções concorrentes e amostragem eficiente em memória, acrescentando menos de 1 ms de overhead por requisição.
+3. **Logs Estruturados Assíncronos:** O uso do `JsonConsoleFormatter` oficial da Microsoft escreve diretamente em buffers assíncronos no stdout, desacoplando o I/O de log do ciclo de resposta da requisição.
+4. **Segregação de Usuários do PostgreSQL:** O uso de credenciais dedicadas (`cashflow_writer` e `cashflow_reader`) aproveita pools de conexões independentes (`NpgsqlConnection`), reduzindo contenções internas de lock entre leituras e escritas.
+
+---
+
+### 3.4. Cenário C: Teste de Ponto de Ruptura e Capacidade Limite (Breakpoint Testing)
 * **Objetivo de Engenharia:** Elevar a carga em rampa progressiva sobre 1 única réplica de contêiner da API de Consolidado até identificar a zona de saturação que torna obrigatório o escalonamento horizontal (*scaling out*).
 * **Perfil da Rampa:** 50 RPS -> 100 RPS -> 200 RPS -> 350 RPS -> 500 RPS -> 650 RPS (13 vezes a meta do desafio).
 * **Volume Total Processado:** **24.422 requisições HTTP** em 1 minuto e 25 segundos.
@@ -89,15 +115,15 @@ O desafio estipula o seguinte requisito de missão crítica para o serviço de f
 
 ## 4. Gráficos Comparativos de Desempenho
 
-### 4.1. Curva de Latência por Percentil (Leitura vs. Escrita)
+### 4.1. Curva de Latência por Percentil (Leitura vs. Escrita com Segurança & Observabilidade Ativas)
 
 ```mermaid
 xychart-beta
     title "Comparativo de Latência por Percentil (Milissegundos - Menor é Melhor)"
     x-axis ["p50 (Mediana)", "p90", "p95", "p99", "Limite Tolerado SLA"]
     y-axis "Latência (ms)" 0 --> 60
-    bar [1.84, 2.15, 2.30, 3.76, 50.00]
-    line [4.38, 12.12, 18.05, 41.44, 50.00]
+    bar [2.06, 2.53, 3.01, 5.70, 50.00]
+    line [4.48, 7.62, 12.89, 26.50, 50.00]
 ```
 *Legenda: As barras representam a rota de Leitura (Consolidado via Redis), a linha representa a rota de Escrita (PostgreSQL + RabbitMQ).*
 

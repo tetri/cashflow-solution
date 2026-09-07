@@ -115,7 +115,20 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
 builder.Services.AddConsolidatedApplication();
 builder.Services.AddConsolidatedInfrastructure(builder.Configuration);
 
+// Habilitacao de CORS para permitir consumo seguro pelo Frontend Web (Cockpit de Demonstracao)
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
 var app = builder.Build();
+
+app.UseCors();
 
 // Middleware OWASP 1: Cabecalhos de seguranca HTTP (Defense in Depth / OWASP Secure Headers)
 app.Use(async (context, next) =>
@@ -146,8 +159,9 @@ app.Use(async (context, next) =>
 {
     var path = context.Request.Path.Value ?? string.Empty;
 
-    // Endpoints publicos liberados sem autenticacao: Health Checks, Metrics e documentacao Swagger
-    if (path.StartsWith("/health", StringComparison.OrdinalIgnoreCase) ||
+    // Liberacao de preflight CORS (OPTIONS) e endpoints publicos (Health Checks, Metrics, Swagger)
+    if (HttpMethods.IsOptions(context.Request.Method) ||
+        path.StartsWith("/health", StringComparison.OrdinalIgnoreCase) ||
         path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase) ||
         path.StartsWith("/metrics", StringComparison.OrdinalIgnoreCase))
     {

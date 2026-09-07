@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CashFlow Platform - Cockpit Operacional e Governança Financeira</title>
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-card: #1e293b;
+            --bg-card-hover: #273549;
+            --border-color: #334155;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-blue: #0284c7;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-amber: #f59e0b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            padding: 24px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 20px;
+            margin-bottom: 24px;
+        }
+
+        .header-title h1 {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            color: #ffffff;
+        }
+
+        .header-title p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .badge-success {
+            background-color: rgba(16, 185, 129, 0.15);
+            color: var(--accent-green);
+            border: 1px solid var(--accent-green);
+        }
+
+        .badge-warning {
+            background-color: rgba(245, 158, 11, 0.15);
+            color: var(--accent-amber);
+            border: 1px solid var(--accent-amber);
+        }
+
+        .badge-danger {
+            background-color: rgba(239, 68, 68, 0.15);
+            color: var(--accent-red);
+            border: 1px solid var(--accent-red);
+        }
+
+        .badge-info {
+            background-color: rgba(2, 132, 199, 0.15);
+            color: var(--accent-blue);
+            border: 1px solid var(--accent-blue);
+        }
+
+        .health-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .card-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        input, select {
+            width: 100%;
+            background-color: #0b1120;
+            border: 1px solid var(--border-color);
+            color: #ffffff;
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--accent-blue);
+        }
+
+        .type-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .type-btn {
+            background-color: #0b1120;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 10px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .type-btn.active-credit {
+            background-color: rgba(16, 185, 129, 0.2);
+            border-color: var(--accent-green);
+            color: var(--accent-green);
+        }
+
+        .type-btn.active-debit {
+            background-color: rgba(239, 68, 68, 0.2);
+            border-color: var(--accent-red);
+            color: var(--accent-red);
+        }
+
+        .btn {
+            background-color: var(--accent-blue);
+            color: #ffffff;
+            border: none;
+            padding: 12px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            transition: background-color 0.2s;
+        }
+
+        .btn:hover {
+            background-color: #0369a1;
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 8px 12px;
+            font-size: 12px;
+            width: auto;
+        }
+
+        .btn-secondary:hover {
+            color: #ffffff;
+            border-color: #64748b;
+        }
+
+        .idempotency-box {
+            background-color: #0b1120;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 16px;
+        }
+
+        .idempotency-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .idempotency-key {
+            font-family: monospace;
+            font-size: 12px;
+            color: var(--accent-blue);
+            word-break: break-all;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .stat-item {
+            background-color: #0b1120;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 14px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .stat-value.credit {
+            color: var(--accent-green);
+        }
+
+        .stat-value.debit {
+            color: var(--accent-red);
+        }
+
+        .stat-value.balance {
+            color: #38bdf8;
+        }
+
+        .response-alert {
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            display: none;
+            line-height: 1.5;
+        }
+
+        .response-alert.success {
+            background-color: rgba(16, 185, 129, 0.1);
+            border: 1px solid var(--accent-green);
+            color: #6ee7b7;
+        }
+
+        .response-alert.conflict {
+            background-color: rgba(245, 158, 11, 0.1);
+            border: 1px solid var(--accent-amber);
+            color: #fcd34d;
+        }
+
+        .response-alert.error {
+            background-color: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--accent-red);
+            color: #fca5a5;
+        }
+
+        .audit-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin-top: 12px;
+        }
+
+        .audit-table th, .audit-table td {
+            text-align: left;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .audit-table th {
+            color: var(--text-secondary);
+            font-weight: 600;
+            background-color: #0b1120;
+        }
+
+        .audit-table tr:hover td {
+            background-color: var(--bg-card-hover);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-title">
+                <h1>CashFlow Platform</h1>
+                <p>Cockpit de Operacao e Governanca Financeira | .NET 8, CQRS, Redis e RabbitMQ</p>
+            </div>
+            <div>
+                <button class="btn btn-secondary" onclick="atualizarDiagnosticos()">Atualizar Diagnosticos</button>
+            </div>
+        </header>
+
+        <!-- Barra de Observabilidade e Diagnósticos -->
+        <section class="health-bar">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Transactions API (Write-Side)</h2>
+                    <span id="badge-tx-status" class="badge badge-warning">Verificando...</span>
+                </div>
+                <p style="font-size: 13px; color: var(--text-secondary);" id="desc-tx-status">Conectando aos diagnosticos de infraestrutura...</p>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>Consolidated API (Read-Side)</h2>
+                    <span id="badge-cons-status" class="badge badge-warning">Verificando...</span>
+                </div>
+                <p style="font-size: 13px; color: var(--text-secondary);" id="desc-cons-status">Conectando aos diagnosticos de infraestrutura...</p>
+            </div>
+        </section>
+
+        <!-- Grade Principal: Lançamentos e Consolidado -->
+        <div class="grid-2">
+            <!-- Card 1: Novo Lançamento Financeiro -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Novo Lancamento Financeiro (Command)</h2>
+                    <span class="badge badge-info">Write-Through</span>
+                </div>
+
+                <form id="form-transacao" onsubmit="enviarTransacao(event)">
+                    <div class="form-group">
+                        <label for="tx-merchant">Comerciante (MerchantId)</label>
+                        <select id="tx-merchant">
+                            <option value="LOJA_MATRIZ">LOJA_MATRIZ (Principal)</option>
+                            <option value="LOJA_CENTRO_01">LOJA_CENTRO_01 (Filial)</option>
+                            <option value="LOJA_ONLINE">LOJA_ONLINE (E-commerce)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Natureza do Lancamento</label>
+                        <div class="type-selector">
+                            <div id="btn-credit" class="type-btn active-credit" onclick="selecionarTipo('Credit')">Credito (Entrada)</div>
+                            <div id="btn-debit" class="type-btn" onclick="selecionarTipo('Debit')">Debito (Saida)</div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tx-amount">Valor (R$)</label>
+                        <input type="number" id="tx-amount" step="0.01" min="0.01" value="250.00" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tx-description">Descricao Contabil (Sem Emojis)</label>
+                        <input type="text" id="tx-description" value="Venda no balcao da loja" maxlength="255" required>
+                    </div>
+
+                    <div class="idempotency-box">
+                        <div class="idempotency-header">
+                            <label style="margin-bottom: 0;">Chave de Idempotencia (X-Idempotency-Key)</label>
+                            <button type="button" class="btn btn-secondary" onclick="gerarNovaChaveIdempotencia()">Gerar Nova</button>
+                        </div>
+                        <div id="lbl-idempotency-key" class="idempotency-key">gerando...</div>
+                        <div style="margin-top: 8px; display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="chk-fixar-chave" style="width: auto;">
+                            <label for="chk-fixar-chave" style="margin-bottom: 0; font-size: 12px; cursor: pointer;">
+                                Fixar chave para teste de duplicidade (Idempotencia)
+                            </label>
+                        </div>
+                    </div>
+
+                    <button type="submit" id="btn-submeter-tx" class="btn">Transmitir Lancamento</button>
+                    <div id="alert-tx" class="response-alert"></div>
+                </form>
+            </div>
+
+            <!-- Card 2: Consulta de Saldo Consolidado Diário -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Consulta de Saldo Consolidado (Query)</h2>
+                    <span id="badge-cache-origem" class="badge badge-info">Aguardando Consulta</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="cons-merchant">Comerciante</label>
+                    <select id="cons-merchant">
+                        <option value="LOJA_MATRIZ">LOJA_MATRIZ (Principal)</option>
+                        <option value="LOJA_CENTRO_01">LOJA_CENTRO_01 (Filial)</option>
+                        <option value="LOJA_ONLINE">LOJA_ONLINE (E-commerce)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="cons-date">Data Contabil (yyyy-MM-dd)</label>
+                    <input type="date" id="cons-date" required>
+                </div>
+
+                <button type="button" class="btn" onclick="consultarConsolidado()">Consultar Saldo Diário</button>
+
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-label">Total Creditos</div>
+                        <div id="lbl-total-creditos" class="stat-value credit">R$ 0,00</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Total Debitos</div>
+                        <div id="lbl-total-debitos" class="stat-value debit">R$ 0,00</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Saldo Liquido de Fechamento</div>
+                        <div id="lbl-saldo-fechamento" class="stat-value balance">R$ 0,00</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Lancamentos no Dia</div>
+                        <div id="lbl-qtd-transacoes" class="stat-value" style="color: #ffffff;">0</div>
+                    </div>
+                </div>
+
+                <div id="alert-cons" class="response-alert" style="margin-top: 16px;"></div>
+            </div>
+        </div>
+
+        <!-- Sessão de Log de Auditoria da Sessão -->
+        <section class="card">
+            <div class="card-header">
+                <h2>Rastreamento em Tempo Real de Requisicoes HTTP</h2>
+                <button class="btn btn-secondary" onclick="limparHistorico()">Limpar Trilha</button>
+            </div>
+            <table class="audit-table">
+                <thead>
+                    <tr>
+                        <th>Horario (UTC)</th>
+                        <th>Metodo</th>
+                        <th>Endpoint</th>
+                        <th>Status HTTP</th>
+                        <th>Latencia</th>
+                        <th>Detalhe da Resposta</th>
+                    </tr>
+                </thead>
+                <tbody id="audit-table-body">
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: var(--text-secondary);">Nenhuma operacao realizada nesta sessao.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+    </div>
+
+    <script>
+        const API_KEY = "cashflow-secret-api-key-2026";
+        let tipoSelecionado = "Credit";
+        let chaveIdempotenciaAtual = "";
+        let historicoAudit = [];
+
+        function inicializarDataHoje() {
+            const hoje = new Date().toISOString().split("T")[0];
+            document.getElementById("cons-date").value = hoje;
+        }
+
+        function gerarUuidV4() {
+            return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, c =>
+                (+c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> +c / 4).toString(16)
+            );
+        }
+
+        function gerarNovaChaveIdempotencia() {
+            chaveIdempotenciaAtual = gerarUuidV4();
+            document.getElementById("lbl-idempotency-key").textContent = chaveIdempotenciaAtual;
+        }
+
+        function selecionarTipo(tipo) {
+            tipoSelecionado = tipo;
+            const btnCredit = document.getElementById("btn-credit");
+            const btnDebit = document.getElementById("btn-debit");
+
+            if (tipo === "Credit") {
+                btnCredit.className = "type-btn active-credit";
+                btnDebit.className = "type-btn";
+            } else {
+                btnCredit.className = "type-btn";
+                btnDebit.className = "type-btn active-debit";
+            }
+        }
+
+        function formatarMoedaBrl(valor) {
+            return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor || 0);
+        }
+
+        function registrarAuditoria(metodo, rota, status, latenciaMs, detalhe) {
+            const horarioUtc = new Date().toISOString().substring(11, 19) + "Z";
+            historicoAudit.unshift({ horarioUtc, metodo, rota, status, latenciaMs, detalhe });
+
+            const tbody = document.getElementById("audit-table-body");
+            tbody.innerHTML = historicoAudit.map(h => {
+                let badgeClass = "badge-success";
+                if (h.status >= 400 && h.status < 500) badgeClass = "badge-warning";
+                if (h.status >= 500) badgeClass = "badge-danger";
+
+                return `<tr>
+                    <td>${h.horarioUtc}</td>
+                    <td><span class="badge badge-info">${h.metodo}</span></td>
+                    <td style="font-family: monospace;">${h.rota}</td>
+                    <td><span class="badge ${badgeClass}">${h.status}</span></td>
+                    <td>${Math.round(h.latenciaMs)} ms</td>
+                    <td>${h.detalhe}</td>
+                </tr>`;
+            }).join("");
+        }
+
+        function limparHistorico() {
+            historicoAudit = [];
+            document.getElementById("audit-table-body").innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">Trilha de auditoria limpa.</td></tr>`;
+        }
+
+        async function atualizarDiagnosticos() {
+            // Diagnostico da Transactions API
+            const t0 = performance.now();
+            try {
+                const resTx = await fetch("/health/transactions/ready");
+                const latenciaTx = Math.round(performance.now() - t0);
+                if (resTx.ok) {
+                    const dados = await resTx.json();
+                    document.getElementById("badge-tx-status").className = "badge badge-success";
+                    document.getElementById("badge-tx-status").textContent = "Saudavel (" + latenciaTx + "ms)";
+                    document.getElementById("desc-tx-status").textContent = "PostgreSQL e RabbitMQ conectados ativamente.";
+                } else {
+                    document.getElementById("badge-tx-status").className = "badge badge-danger";
+                    document.getElementById("badge-tx-status").textContent = "Degradado";
+                }
+            } catch {
+                document.getElementById("badge-tx-status").className = "badge badge-danger";
+                document.getElementById("badge-tx-status").textContent = "Indisponivel";
+                document.getElementById("desc-tx-status").textContent = "Nao foi possivel conectar a Transactions API.";
+            }
+
+            // Diagnostico da Consolidated API
+            const t1 = performance.now();
+            try {
+                const resCons = await fetch("/health/consolidated/ready");
+                const latenciaCons = Math.round(performance.now() - t1);
+                if (resCons.ok) {
+                    const dados = await resCons.json();
+                    document.getElementById("badge-cons-status").className = "badge badge-success";
+                    document.getElementById("badge-cons-status").textContent = "Saudavel (" + latenciaCons + "ms)";
+                    document.getElementById("desc-cons-status").textContent = "PostgreSQL (leitor) e Redis ativos.";
+                } else {
+                    document.getElementById("badge-cons-status").className = "badge badge-danger";
+                    document.getElementById("badge-cons-status").textContent = "Degradado";
+                }
+            } catch {
+                document.getElementById("badge-cons-status").className = "badge badge-danger";
+                document.getElementById("badge-cons-status").textContent = "Indisponivel";
+                document.getElementById("desc-cons-status").textContent = "Nao foi possivel conectar a Consolidated API.";
+            }
+        }
+
+        async function enviarTransacao(event) {
+            event.preventDefault();
+            const alertBox = document.getElementById("alert-tx");
+            const btnSubmit = document.getElementById("btn-submeter-tx");
+
+            btnSubmit.disabled = true;
+            btnSubmit.textContent = "Transmitindo...";
+            alertBox.style.display = "none";
+
+            const merchantId = document.getElementById("tx-merchant").value;
+            const amount = parseFloat(document.getElementById("tx-amount").value);
+            const description = document.getElementById("tx-description").value;
+
+            const payload = {
+                merchantId: merchantId,
+                amount: amount,
+                type: tipoSelecionado,
+                description: description,
+                idempotencyKey: chaveIdempotenciaAtual
+            };
+
+            const t0 = performance.now();
+            try {
+                const resposta = await fetch("/api/v1/transactions", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Api-Key": API_KEY,
+                        "X-Idempotency-Key": chaveIdempotenciaAtual
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const latencia = performance.now() - t0;
+                const status = resposta.status;
+                const corpo = await resposta.json();
+
+                if (status === 201) {
+                    alertBox.className = "response-alert success";
+                    alertBox.textContent = `Lancamento registrado com sucesso! (HTTP 201 Created) | ID: ${corpo.transactionId}`;
+                    alertBox.style.display = "block";
+                    registrarAuditoria("POST", "/api/v1/transactions", status, latencia, `Novo lancamento de ${formatarMoedaBrl(amount)} registrado.`);
+
+                    if (!document.getElementById("chk-fixar-chave").checked) {
+                        gerarNovaChaveIdempotencia();
+                    }
+                    // Atualiza automaticamente o consolidado se for da mesma data
+                    consultarConsolidado();
+                } else if (status === 200) {
+                    alertBox.className = "response-alert conflict";
+                    alertBox.textContent = `Operacao idempotente reconhecida! (HTTP 200 OK) | Nenhum lancamento duplicado no caixa. ID original: ${corpo.transactionId}`;
+                    alertBox.style.display = "block";
+                    registrarAuditoria("POST", "/api/v1/transactions", status, latencia, `Idempotencia validada: rejeitada criacao duplicada com sucesso.`);
+                } else if (status === 409) {
+                    alertBox.className = "response-alert conflict";
+                    alertBox.textContent = `Conflito de Idempotencia! (HTTP 409 Conflict): ${corpo.detail || "Chave reutilizada com dados divergentes."}`;
+                    alertBox.style.display = "block";
+                    registrarAuditoria("POST", "/api/v1/transactions", status, latencia, `Conflito de chave detectado (409).`);
+                } else {
+                    alertBox.className = "response-alert error";
+                    alertBox.textContent = `Falha na operacao (HTTP ${status}): ${corpo.detail || "Verifique os parametros."}`;
+                    alertBox.style.display = "block";
+                    registrarAuditoria("POST", "/api/v1/transactions", status, latencia, corpo.title || "Erro de validacao.");
+                }
+            } catch (err) {
+                alertBox.className = "response-alert error";
+                alertBox.textContent = "Erro de comunicacao com o servidor: " + err.message;
+                alertBox.style.display = "block";
+                registrarAuditoria("POST", "/api/v1/transactions", 0, 0, "Falha de rede.");
+            } finally {
+                btnSubmit.disabled = false;
+                btnSubmit.textContent = "Transmitir Lancamento";
+            }
+        }
+
+        async function consultarConsolidado() {
+            const merchantId = document.getElementById("cons-merchant").value;
+            const data = document.getElementById("cons-date").value;
+            const badgeOrigem = document.getElementById("badge-cache-origem");
+            const alertCons = document.getElementById("alert-cons");
+
+            if (!data) return;
+
+            const t0 = performance.now();
+            try {
+                const resposta = await fetch(`/api/v1/consolidated/${merchantId}/${data}`, {
+                    method: "GET",
+                    headers: {
+                        "Accept": "application/json",
+                        "X-Api-Key": API_KEY
+                    }
+                });
+
+                const latencia = performance.now() - t0;
+                const status = resposta.status;
+
+                if (resposta.ok) {
+                    const dados = await resposta.json();
+                    document.getElementById("lbl-total-creditos").textContent = formatarMoedaBrl(dados.totalCredits);
+                    document.getElementById("lbl-total-debitos").textContent = formatarMoedaBrl(dados.totalDebits);
+                    document.getElementById("lbl-saldo-fechamento").textContent = formatarMoedaBrl(dados.closingBalance);
+                    document.getElementById("lbl-qtd-transacoes").textContent = dados.transactionCount;
+
+                    if (dados.cached) {
+                        badgeOrigem.className = "badge badge-success";
+                        badgeOrigem.textContent = "Cache Redis (<5ms)";
+                    } else {
+                        badgeOrigem.className = "badge badge-warning";
+                        badgeOrigem.textContent = "PostgreSQL (Fallback)";
+                    }
+
+                    alertCons.style.display = "none";
+                    registrarAuditoria("GET", `/api/v1/consolidated/${merchantId}/${data}`, status, latencia, `Saldo: ${formatarMoedaBrl(dados.closingBalance)} (${dados.cached ? "Redis Cache" : "Postgres"})`);
+                } else {
+                    const erro = await resposta.json();
+                    alertCons.className = "response-alert error";
+                    alertCons.textContent = `Falha ao consultar saldo: ${erro.detail || erro.title}`;
+                    alertCons.style.display = "block";
+                    registrarAuditoria("GET", `/api/v1/consolidated/${merchantId}/${data}`, status, latencia, erro.title || "Falha na consulta");
+                }
+            } catch (err) {
+                alertCons.className = "response-alert error";
+                alertCons.textContent = "Falha de rede ao consultar consolidado.";
+                alertCons.style.display = "block";
+            }
+        }
+
+        // Inicializacao
+        document.addEventListener("DOMContentLoaded", () => {
+            inicializarDataHoje();
+            gerarNovaChaveIdempotencia();
+            atualizarDiagnosticos();
+            setTimeout(consultarConsolidado, 500);
+        });
+    </script>
+</body>
+</html>

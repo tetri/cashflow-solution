@@ -49,7 +49,7 @@ export default function () {
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'X-Api-Key': __ENV.API_KEY || 'cashflow-secret-api-key-2026',
+      'X-Api-Key': __ENV.API_KEY || 'bd46b396-6da2-405d-a199-5af41b82fd49',
     },
     tags: { name: 'CriarTransacao' },
   };
