@@ -98,9 +98,22 @@ var app = builder.Build();
 // Middleware OWASP 1: Cabecalhos de seguranca HTTP (Defense in Depth / OWASP Secure Headers)
 app.Use(async (context, next) =>
 {
+    var path = context.Request.Path.Value ?? string.Empty;
+    var ehSwagger = path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase);
+
     context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
     context.Response.Headers.Append("X-Frame-Options", "DENY");
-    context.Response.Headers.Append("Content-Security-Policy", "default-src 'self'");
+
+    // No Swagger UI, permitimos scripts/estilos inline e esquemas data: para correta renderizacao da interface grafica
+    if (ehSwagger)
+    {
+        context.Response.Headers.Append("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;");
+    }
+    else
+    {
+        context.Response.Headers.Append("Content-Security-Policy", "default-src 'self'");
+    }
+
     context.Response.Headers.Append("Referrer-Policy", "no-referrer");
     context.Response.Headers.Append("X-Permitted-Cross-Domain-Policies", "none");
     await next();
