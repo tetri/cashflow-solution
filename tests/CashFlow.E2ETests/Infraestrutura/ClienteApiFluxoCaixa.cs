@@ -9,15 +9,22 @@ namespace CashFlow.E2ETests.Infraestrutura;
 /// </summary>
 public class ClienteApiFluxoCaixa
 {
+    /// <summary>
+    /// Chave de API padrao para os testes automatizados da solucao.
+    /// </summary>
+    public const string ChaveApiKeyPadrao = "cashflow-secret-api-key-2026";
+
     private readonly HttpClient _httpClient;
+    private readonly string? _apiKey;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
     };
 
-    public ClienteApiFluxoCaixa(HttpClient httpClient)
+    public ClienteApiFluxoCaixa(HttpClient httpClient, string? apiKey = ChaveApiKeyPadrao)
     {
         _httpClient = httpClient;
+        _apiKey = apiKey;
     }
 
     /// <summary>
@@ -41,6 +48,32 @@ public class ClienteApiFluxoCaixa
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/transactions")
         {
             Content = new StringContent(conteudoJson, Encoding.UTF8, "application/json")
+        };
+
+        if (!string.IsNullOrWhiteSpace(_apiKey))
+        {
+            request.Headers.Add("X-Api-Key", _apiKey);
+        }
+
+        if (!string.IsNullOrWhiteSpace(chaveIdempotenciaCabecalho))
+        {
+            request.Headers.Add("X-Idempotency-Key", chaveIdempotenciaCabecalho);
+        }
+
+        return await _httpClient.SendAsync(request);
+    }
+
+    /// <summary>
+    /// Envia uma requisicao POST sem cabecalho de autenticacao para testar politicas de seguranca OWASP.
+    /// </summary>
+    public async Task<HttpResponseMessage> RegistrarLancamentoSemAutenticacaoAsync(
+        RequisicaoLancamento requisicao,
+        string? chaveIdempotenciaCabecalho = null)
+    {
+        var json = JsonSerializer.Serialize(requisicao);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/transactions")
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
         };
 
         if (!string.IsNullOrWhiteSpace(chaveIdempotenciaCabecalho))
@@ -71,7 +104,24 @@ public class ClienteApiFluxoCaixa
     public async Task<HttpResponseMessage> ConsultarConsolidadoBrutoAsync(string comercianteId, string dataIso)
     {
         var uri = $"/api/v1/consolidated/{Uri.EscapeDataString(comercianteId)}/{dataIso}";
-        return await _httpClient.GetAsync(uri);
+        using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+
+        if (!string.IsNullOrWhiteSpace(_apiKey))
+        {
+            request.Headers.Add("X-Api-Key", _apiKey);
+        }
+
+        return await _httpClient.SendAsync(request);
+    }
+
+    /// <summary>
+    /// Envia uma requisicao GET de consolidado sem cabecalho de autenticacao para testar politicas de seguranca OWASP.
+    /// </summary>
+    public async Task<HttpResponseMessage> ConsultarConsolidadoSemAutenticacaoAsync(string comercianteId, string dataIso)
+    {
+        var uri = $"/api/v1/consolidated/{Uri.EscapeDataString(comercianteId)}/{dataIso}";
+        using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+        return await _httpClient.SendAsync(request);
     }
 
     /// <summary>

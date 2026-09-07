@@ -149,22 +149,25 @@ Todas as respostas de erro da plataforma seguem estritamente o padrão **RFC 723
 
 ---
 
-## 5. Coleção de Exemplos Práticos com cURL
+## 5. Coleção de Exemplos Práticos com cURL (Autenticação OWASP)
 
 ```bash
 # 1. Registrar um Credito de R$ 500,00
 curl -X POST http://localhost:5001/api/v1/transactions \
   -H "Content-Type: application/json" \
+  -H "X-Api-Key: cashflow-secret-api-key-2026" \
   -H "X-Idempotency-Key: a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d" \
   -d '{"merchantId":"LOJA_CENTRO_01","amount":500.00,"type":"Credit","description":"Recebimento de vendas"}'
 
 # 2. Registrar um Debito de R$ 120,00
 curl -X POST http://localhost:5001/api/v1/transactions \
   -H "Content-Type: application/json" \
+  -H "X-Api-Key: cashflow-secret-api-key-2026" \
   -H "X-Idempotency-Key: f9e8d7c6-b5a4-3210-fedc-ba9876543210" \
   -d '{"merchantId":"LOJA_CENTRO_01","amount":120.00,"type":"Debit","description":"Pagamento de frete"}'
 
 # 3. Consultar o Consolidado do Dia
 curl -X GET http://localhost:5002/api/v1/consolidated/LOJA_CENTRO_01/2026-09-05 \
-  -H "Accept: application/json"
+  -H "Accept: application/json" \
+  -H "X-Api-Key: cashflow-secret-api-key-2026"
 ```

@@ -46,7 +46,8 @@ public record DetalhesProblemaRfc7231(
     [property: JsonPropertyName("type")] string Type,
     [property: JsonPropertyName("title")] string Title,
     [property: JsonPropertyName("status")] int Status,
-    [property: JsonPropertyName("detail")] string Detail
+    [property: JsonPropertyName("detail")] string Detail,
+    [property: JsonPropertyName("errorCode")] string? ErrorCode = null
 );
 
 /// <summary>

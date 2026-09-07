@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "CashFlow.Consolidated.Api": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:53593;http://localhost:53594"
+    }
+  }
+}

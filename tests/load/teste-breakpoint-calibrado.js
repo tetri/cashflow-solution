@@ -32,7 +32,10 @@ const DATA_CONSULTA = '2026-09-05';
 export default function () {
   const url = `${BASE_URL}/api/v1/consolidated/${MERCHANT_ID}/${DATA_CONSULTA}`;
   const params = {
-    headers: { 'Accept': 'application/json' },
+    headers: {
+      'Accept': 'application/json',
+      'X-Api-Key': __ENV.API_KEY || 'cashflow-secret-api-key-2026',
+    },
     tags: { name: 'ConsultaPontoRuptura' },
   };
 

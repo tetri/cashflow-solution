@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using CashFlow.Shared.Domain.Errors;
 
 namespace CashFlow.E2ETests.Infraestrutura;
 
@@ -131,6 +132,12 @@ public class AmbienteTesteE2E : HttpMessageHandler
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var caminho = request.RequestUri?.AbsolutePath ?? string.Empty;
+
+        // Inspecao rigorosa de autenticacao conforme recomendacoes OWASP API1/API2
+        if (!ValidarAutenticacao(request, out var respostaNaoAutorizada))
+        {
+            return respostaNaoAutorizada;
+        }
 
         // Rota de registro de lancamentos: POST /api/v1/transactions
         if (request.Method == HttpMethod.Post && caminho.Equals("/api/v1/transactions", StringComparison.OrdinalIgnoreCase))
@@ -511,12 +518,47 @@ public class AmbienteTesteE2E : HttpMessageHandler
         ));
     }
 
+    private const string ChaveApiKeyEsperada = "cashflow-secret-api-key-2026";
+
+    private static bool ValidarAutenticacao(HttpRequestMessage request, out HttpResponseMessage respostaErro)
+    {
+        string? tokenFornecido = null;
+        if (request.Headers.TryGetValues("X-Api-Key", out var valoresApiKey))
+        {
+            tokenFornecido = valoresApiKey.FirstOrDefault()?.Trim();
+        }
+        else if (request.Headers.Authorization is { } auth &&
+                 auth.Scheme.Equals("Bearer", StringComparison.OrdinalIgnoreCase))
+        {
+            tokenFornecido = auth.Parameter?.Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(tokenFornecido) ||
+            !string.Equals(tokenFornecido, ChaveApiKeyEsperada, StringComparison.Ordinal))
+        {
+            respostaErro = CriarRespostaJson(HttpStatusCode.Unauthorized, new DetalhesProblemaRfc7231(
+                "https://tools.ietf.org/html/rfc7235#section-3.1",
+                "Acesso nao autorizado",
+                401,
+                "Credenciais de autenticacao ausentes ou invalidas. Forneca o cabecalho 'X-Api-Key' ou 'Authorization: Bearer <token>' valido.",
+                CashFlowErrorCodes.AutenticacaoNaoAutorizada
+            ));
+            return false;
+        }
+
+        respostaErro = null!;
+        return true;
+    }
+
     private static HttpResponseMessage CriarRespostaJson<T>(HttpStatusCode status, T corpo)
     {
         var json = JsonSerializer.Serialize(corpo);
-        return new HttpResponseMessage(status)
+        var resposta = new HttpResponseMessage(status)
         {
             Content = new StringContent(json, Encoding.UTF8, "application/json")
         };
+        resposta.Headers.Add("X-Content-Type-Options", "nosniff");
+        resposta.Headers.Add("X-Frame-Options", "DENY");
+        return resposta;
     }
 }

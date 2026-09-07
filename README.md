@@ -94,22 +94,28 @@ Documentação detalhada de suporte:
 
 ### Passo a passo com Docker Compose
 
-1. **Clone o repositório e inicie todos os containers:**
-```bash
-docker-compose up --build -d
-```
+1. **Configuração de Ambiente (Opcional):**
+   Caso deseje personalizar as credenciais de mensageria, copie o arquivo de modelo:
+   ```bash
+   cp .env.example .env
+   ```
 
-2. **Verifique o status de saúde dos serviços:**
-```bash
-docker-compose ps
-```
+2. **Inicie todos os containers:**
+   ```bash
+   docker compose up --build -d
+   ```
 
-3. **Portas e Serviços Expostos:**
-- **Transactions API:** `http://localhost:5001` (Swagger: `http://localhost:5001/swagger`)
-- **Consolidated API:** `http://localhost:5002` (Swagger: `http://localhost:5002/swagger`)
-- **RabbitMQ Management UI:** `http://localhost:15672` (Usuário: `guest`, Senha: `guest`)
-- **PostgreSQL 16:** `localhost:5432` (Base de Dados: `cashflow_db`, Usuário: `postgres`, Senha: `postgrespassword`)
-- **Redis 7:** `localhost:6379`
+3. **Verifique o status de saúde dos serviços:**
+   ```bash
+   docker compose ps
+   ```
+
+4. **Portas e Serviços Expostos:**
+   - **Transactions API:** `http://localhost:5001` (Swagger: `http://localhost:5001/swagger`)
+   - **Consolidated API:** `http://localhost:5002` (Swagger: `http://localhost:5002/swagger`)
+   - **RabbitMQ Management UI:** `http://localhost:15672` (Autenticação configurada via variáveis de ambiente `RABBITMQ_USER` e `RABBITMQ_PASSWORD` no arquivo `.env`)
+   - **PostgreSQL 16:** `localhost:5432` (Base de Dados: `cashflow_db`, Usuário: `postgres`, Senha: `postgrespassword`)
+   - **Redis 7:** `localhost:6379`
 
 ---
 
@@ -141,6 +147,7 @@ Detalhes de execução e resultados no [README de Testes de Carga](tests/load/RE
 ```bash
 curl -X POST http://localhost:5001/api/v1/transactions \
   -H "Content-Type: application/json" \
+  -H "X-Api-Key: cashflow-secret-api-key-2026" \
   -H "X-Idempotency-Key: f47ac10b-58cc-4372-a567-0e02b2c3d479" \
   -d '{
     "merchantId": "MERCHANT_001",
@@ -154,6 +161,7 @@ curl -X POST http://localhost:5001/api/v1/transactions \
 ```bash
 curl -X POST http://localhost:5001/api/v1/transactions \
   -H "Content-Type: application/json" \
+  -H "X-Api-Key: cashflow-secret-api-key-2026" \
   -H "X-Idempotency-Key: a31bc10b-58cc-4372-a567-0e02b2c3d981" \
   -d '{
     "merchantId": "MERCHANT_001",
@@ -166,7 +174,8 @@ curl -X POST http://localhost:5001/api/v1/transactions \
 ### 5.3 Consultar o Consolidado Diário (Atende >50 req/s via Redis)
 ```bash
 curl -X GET "http://localhost:5002/api/v1/consolidated/MERCHANT_001/2026-09-05" \
-  -H "Accept: application/json"
+  -H "Accept: application/json" \
+  -H "X-Api-Key: cashflow-secret-api-key-2026"
 ```
 
 **Exemplo de Resposta (HTTP 200 OK):**

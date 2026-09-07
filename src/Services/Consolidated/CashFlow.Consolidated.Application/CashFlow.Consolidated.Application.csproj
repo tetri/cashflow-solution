@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CashFlow.Consolidated.Domain\CashFlow.Consolidated.Domain.csproj" />
+    <ProjectReference Include="..\..\..\Shared\CashFlow.Shared.Domain\CashFlow.Shared.Domain.csproj" />
   </ItemGroup>
 
   <ItemGroup>

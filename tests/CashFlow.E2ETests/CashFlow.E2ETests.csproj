@@ -21,4 +21,8 @@
     <PackageReference Include="NSubstitute" Version="5.1.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Shared\CashFlow.Shared.Domain\CashFlow.Shared.Domain.csproj" />
+  </ItemGroup>
+
 </Project>

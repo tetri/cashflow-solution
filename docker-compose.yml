@@ -39,8 +39,8 @@ services:
     image: rabbitmq:3.13-management-alpine
     container_name: cashflow-rabbitmq
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-cashflow_pass_local}
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -64,8 +64,9 @@ services:
       - ConnectionStrings__Database=Host=postgres;Port=5432;Database=cashflow_db;Username=postgres;Password=postgrespassword
       - RabbitMQ__HostName=rabbitmq
       - RabbitMQ__Port=5672
-      - RabbitMQ__UserName=guest
-      - RabbitMQ__Password=guest
+      - RabbitMQ__UserName=${RABBITMQ_USER:-admin}
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD:-cashflow_pass_local}
+      - Authentication__ApiKey=${API_KEY:-cashflow-secret-api-key-2026}
     ports:
       - "5001:8080"
     depends_on:
@@ -85,6 +86,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__Database=Host=postgres;Port=5432;Database=cashflow_db;Username=postgres;Password=postgrespassword
       - ConnectionStrings__Redis=redis:6379,abortConnect=false
+      - Authentication__ApiKey=${API_KEY:-cashflow-secret-api-key-2026}
     ports:
       - "5002:8080"
     depends_on:
@@ -106,8 +108,8 @@ services:
       - ConnectionStrings__Redis=redis:6379,abortConnect=false
       - RabbitMQ__HostName=rabbitmq
       - RabbitMQ__Port=5672
-      - RabbitMQ__UserName=guest
-      - RabbitMQ__Password=guest
+      - RabbitMQ__UserName=${RABBITMQ_USER:-admin}
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD:-cashflow_pass_local}
     depends_on:
       postgres:
         condition: service_healthy

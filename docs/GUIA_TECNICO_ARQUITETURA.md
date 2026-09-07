@@ -162,38 +162,39 @@ Caso a banca peça para você demonstrar o funcionamento na sua máquina durante
 
 ### Passo 1: Subir o ecossistema completo
 ```bash
-docker-compose up --build -d
-docker-compose ps
+docker compose up --build -d
+docker compose ps
 ```
 
 ### Passo 2: Acompanhar o RabbitMQ em tempo real
 1. Acesse o navegador em `http://localhost:15672`.
-2. Login: `guest` / Senha: `guest`.
+2. Informe o usuário e a senha parametrizados nas variáveis de ambiente (`RABBITMQ_USER` e `RABBITMQ_PASSWORD`, definidas no `.env`).
 3. Navegue na aba **Exchanges** e mostre a `cashflow.events`.
 4. Navegue em **Queues** e mostre a fila `cashflow.consolidated.transactions` e sua DLQ vinculada.
 
 ### Passo 3: Enviar um lançamento e ver a consolidação instantânea
-1. Envie um crédito via terminal:
+1. Envie um crédito via terminal (autenticado conforme OWASP API1/API2):
 ```bash
 curl -i -X POST http://localhost:5001/api/v1/transactions \
   -H "Content-Type: application/json" \
+  -H "X-Api-Key: cashflow-secret-api-key-2026" \
   -H "X-Idempotency-Key: 11111111-2222-3333-4444-555555555555" \
   -d '{"merchantId":"LOJA_DEMO","amount":350.00,"type":"Credit","description":"Venda de balcao"}'
 ```
-*Destaque para a banca: Resposta HTTP 201 Created imediata.*
+*Destaque para a banca: Resposta HTTP 201 Created imediata com cabeçalhos de segurança OWASP (`nosniff`, `DENY`).*
 
 2. Submeta o mesmo comando com a mesma chave:
 *Destaque para a banca: Resposta HTTP 200 OK informando que a transação já existe sem duplicar linha no banco.*
 
 3. Consulte o consolidado:
 ```bash
-curl -i http://localhost:5002/api/v1/consolidated/LOJA_DEMO/2026-09-05
+curl -i -H "X-Api-Key: cashflow-secret-api-key-2026" http://localhost:5002/api/v1/consolidated/LOJA_DEMO/2026-09-05
 ```
 *Destaque para a banca: Resposta HTTP 200 OK com "cached": true, demonstrando o funcionamento integrado do Write-Through.*
 
 ### Passo 4: Executar a suíte de testes e testes de carga
 ```bash
-# Executar todos os 140 testes automatizados
+# Executar todos os 144 testes automatizados (incluindo suite de seguranca OWASP)
 dotnet test --logger "console;verbosity=normal"
 
 # Executar teste de carga k6 comprovando 50 RPS
