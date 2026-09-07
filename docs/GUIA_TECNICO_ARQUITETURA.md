@@ -171,6 +171,14 @@ Polly é uma biblioteca de políticas de resiliência e tolerância a falhas par
 > *4. Segregação de credenciais e roles com Least Privilege no PostgreSQL (cashflow_writer vs cashflow_reader).*
 > *Essa dinâmica comprova que a IA potencializa a velocidade da engenharia, mas a liderança de arquitetura, a antecipação de riscos e a responsabilidade de conformidade permanecem prerrogativas do profissional humano sênior."*
 
+### Pergunta 11: "Por que você escolheu especificamente o PostgreSQL 16 (e a imagem Alpine) como banco relacional?"
+> **Resposta de Arquiteto:**
+> *"Essa decisão foi formalizada na ADR 005 e sustentada por quatro pilares técnicos:*
+> *1. Ciclo de Vida Corporativo LTS: Lançado em setembro de 2023, o PostgreSQL 16 tem suporte oficial de patches de segurança e estabilidade garantido até novembro de 2028 (5 anos), o que atende às exigências de conformidade e longevidade de sistemas bancários e financeiros.*
+> *2. Otimizações de Query Planner e CPU SIMD: A versão 16 introduziu aceleração de CPU via instruções SIMD para parsing e agregações matemáticas (SUM/COUNT), além de ganhos expressivos em cargas concorrentes de escrita e eficiência de índices btree para chaves de idempotência.*
+> *3. Sinergia com .NET 8 e Npgsql 8.x: O driver Npgsql 8.0.4 possui integração nativa e testada com o PostgreSQL 16 para tipos modernos do C# 12 (DateOnly nativo mapeado para a coluna 'date' sem problemas de fuso horário).*
+> *4. Imagem postgres:16-alpine: Reduz a superfície de ataque para ~100 MB (contra ~450 MB da imagem padrão), eliminando ferramentas e utilitários supérfluos do sistema operacional e reduzindo drasticamente vulnerabilidades conhecidas (CVEs)."*
+
 ---
 
 ## 4. Roteiro Prático para Demonstração ao Vivo

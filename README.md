@@ -81,6 +81,7 @@ Documentação detalhada de suporte:
 - [ADR 002 - Estrategia de Cache Distribuido e Fallback](docs/adr/ADR-002-caching-strategy.md)
 - [ADR 003 - Tolerancia a Falhas e Resiliencia com Polly](docs/adr/ADR-003-resilience-polly.md)
 - [ADR 004 - Estrategia de Serializacao e Compactacao de Mensagens](docs/adr/ADR-004-message-compression-and-serialization.md)
+- [ADR 005 - Selecao do SGBD Relacional PostgreSQL 16 (LTS)](docs/adr/ADR-005-postgresql-relational-database.md)
 - [Arquitetura de Seguranca e Modelo STRIDE](docs/SECURITY.md)
 - [Testes de Carga k6 e Metricas de Throughput](tests/load/README.md)
 
